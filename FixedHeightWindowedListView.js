@@ -80,18 +80,30 @@ export default class FixedHeightWindowedListView extends React.Component {
       return;
     }
 
+    this._scrollAttemptCounter = this._scrollAttemptCounter || 0;
+    this._scrollAttemptCounter += 1;
+    let scrollAttemptCount = this._scrollAttemptCounter;
+
     this.clearEnqueuedComputation();
     this.setState({
       bufferFirstRow: row,
       bufferLastRow: row + 8, // lol no
     }, () => {
       requestAnimationFrame(() => {
-
         // todo: change this to timeout so we can clear if it's canceled?
+
+        // TODO: try removing all of these RAFs and scroll up on android
         requestAnimationFrame(() => {
+          if (this._scrollAttemptCounter !== scrollAttemptCount) {
+            return;
+          }
           this.scrollRef.scrollWithoutAnimationTo(startY);
 
           requestAnimationFrame(() => {
+             if (this._scrollAttemptCounter !== scrollAttemptCount) {
+               return;
+             }
+
             this.setState({
               firstRow: row,
               lastRow: row + 8,
