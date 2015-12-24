@@ -23,9 +23,28 @@ import React, {
 import _ from 'lodash';
 import FixedHeightWindowedListView from 'FixedHeightWindowedListView';
 import SwipeToDelete from 'SwipeToDelete';
+import randomColor from 'randomcolor';
 
 let names = require('./names');
 names = _.groupBy(require('./names'), (name) => name[0].toUpperCase());
+
+
+let lastFrame = new Date();
+
+function showLastFrameTime() {
+  requestAnimationFrame(() => {
+    let thisFrame = new Date();
+    let delta = thisFrame - lastFrame;
+
+    if (delta > 60) {
+      console.log("warning - frame time: " + (thisFrame - lastFrame));
+    }
+    lastFrame = thisFrame;
+    showLastFrameTime();
+  });
+}
+
+showLastFrameTime();
 
 class Main extends React.Component {
   constructor(props, context) {
@@ -46,6 +65,15 @@ class Main extends React.Component {
   }
 
   render() {
+    this._alphabetInstance = this._alphabetInstance || (
+      <View style={styles.alphabetSidebar} shouldRasterizeIOS>
+        <AlphabetPicker
+          onTouchStart={() => { this.setState({isTouching: true}) }}
+          onTouchEnd={() => { requestAnimationFrame(() => { this.setState({isTouching: false}) })}}
+          onTouchLetter={this._onTouchLetter.bind(this)} />
+      </View>
+    );
+
     return (
       <View style={{flex: 1}}>
         <View style={styles.container}>
@@ -55,26 +83,20 @@ class Main extends React.Component {
             renderCell={this._renderCell.bind(this)}
             renderSectionHeader={this._renderSectionHeader.bind(this)}
             getHeightForRowInSection={this._getHeightForRowInSection}
-            incrementDelay={17}
+            incrementDelay={16}
             initialNumToRender={15}
             maxNumToRender={50}
-            pageSize={Platform.OS === 'ios' ? 25 : 10}
-            numToRenderAhead={this.state.isTouching ? 0 : 25}
+            pageSize={Platform.OS === 'ios' ? 15 : 10}
+            numToRenderAhead={this.state.isTouching ? 0 : 30}
           />
         </View>
 
-        <View style={styles.alphabetSidebar} shouldRasterizeIOS>
-          <AlphabetPicker
-            onTouchStart={() => { this.setState({isTouching: true}) }}
-            onTouchEnd={() => { this.setState({isTouching: false}) }}
-            onTouchLetter={this._onTouchLetter.bind(this)} />
-        </View>
+        {this._alphabetInstance}
       </View>
     );
   }
 
   _onTouchLetter(letter) {
-    console.log(letter);
     this._listView.scrollToSectionBuffered(letter);
   }
 
@@ -114,33 +136,21 @@ class AlphabetPicker extends React.Component {
       onPanResponderGrant: (e, gestureState) => {
         this.props.onTouchStart && this.props.onTouchStart();
 
-        let letter = this._findTouchedLetter(gestureState.y0);
-        if (letter) {
-          this.props.onTouchLetter && this.props.onTouchLetter(letter);
-        }
+        this.tapTimeout = setTimeout(() => {
+          this._onTouchLetter(this._findTouchedLetter(gestureState.y0));
+        }, 100);
       },
       onPanResponderMove: (evt, gestureState) => {
-        // TODO: This should adjust itself automatically based on how quickly
-        // the device is able to actually render, maybe through onLayout on
-        // the cells. Throttle it on the ListView side and coalesce by dropping
-        // old values.
-        let throttleMs = 16 * 5;
-
-        if (!this.isHandlingMove) {
-          this.isHandlingMove = true;
-
-          setTimeout(() => {
-            this.isHandlingMove = false;
-            let letter = this._findTouchedLetter(gestureState.moveY);
-            if (letter) {
-              this.props.onTouchLetter && this.props.onTouchLetter(letter);
-            }
-          }, throttleMs);
-        }
+        clearTimeout(this.tapTimeout);
+        this._onTouchLetter(this._findTouchedLetter(gestureState.moveY));
       },
       onPanResponderTerminate: this._onPanResponderEnd.bind(this),
       onPanResponderRelease: this._onPanResponderEnd.bind(this),
     });
+  }
+
+  _onTouchLetter(letter) {
+    letter && this.props.onTouchLetter && this.props.onTouchLetter(letter);
   }
 
   _onPanResponderEnd() {
@@ -171,7 +181,7 @@ class AlphabetPicker extends React.Component {
       <View
         {...this._panResponder.panHandlers}
         onLayout={this._onLayout.bind(this)}
-        style={{paddingHorizontal: 5, backgroundColor: 'transparent', justifyContent: 'center'}}>
+        style={{paddingHorizontal: 5, backgroundColor: '#fff', borderRadius: 1, justifyContent: 'center'}}>
         <View>
           {this._letters}
         </View>
@@ -189,7 +199,7 @@ class ContactCell extends React.Component {
   render() {
     return (
       <View style={styles.cell}>
-        <View style={styles.placeholderCircle} />
+        <View style={[styles.placeholderCircle, {backgroundColor: randomColor()}]} />
         <Text style={styles.name}>
           {this.props.data}
         </Text>
@@ -198,8 +208,6 @@ class ContactCell extends React.Component {
   }
 }
 
-// <SwipeToDelete onDelete={() => {}} style={styles.swipeContainer}>
-// </SwipeToDelete>
 
 let styles = StyleSheet.create({
   container: {
@@ -230,11 +238,11 @@ let styles = StyleSheet.create({
   },
   cell: {
     height: 95,
+    borderBottomColor: '#ccc',
+    borderBottomWidth: 1,
     backgroundColor: '#fff',
     flexDirection: 'row',
     alignItems: 'center',
-    borderBottomColor: '#ccc',
-    borderBottomWidth: 1,
   },
 });
 

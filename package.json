@@ -12,7 +12,8 @@
     "immutable": "^3.7.5",
     "invariant": "^2.2.0",
     "lodash": "^3.10.1",
-    "react-native": "exponentjs/react-native#2015-12-14",
+    "randomcolor": "^0.4.2",
+    "react-native": "exponentjs/react-native#exp-latest",
     "react-native-swipe-actions": "^0.1.0"
   },
   "devDependencies": {
