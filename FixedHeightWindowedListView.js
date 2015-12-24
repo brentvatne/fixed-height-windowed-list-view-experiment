@@ -114,7 +114,7 @@ export default class FixedHeightWindowedListView extends React.Component {
     if (Platform.OS === 'android') {
       setTimeout(() => {
         callback();
-      }, 17 * 3);
+      }, 17 * 2);
     } else {
       callback();
     }
@@ -163,12 +163,16 @@ export default class FixedHeightWindowedListView extends React.Component {
       this.__renderCells(rows, bufferFirstRow, bufferLastRow);
     }
 
+    let totalRows = this.props.dataSource.getRowCount();
+    console.log('totalRows: ' + totalRows);
+    console.log('lastRow: ' + lastRow);
+    console.log('sp-bot: ' + spacerBottomHeight);
     rows.push(<View key="sp-bot" style={{height: spacerBottomHeight}} />);
 
     return (
       <ScrollView
         scrollEventThrottle={17}
-        decelerationRate={0.9}
+        decelerationRate={0.99}
         removeClippedSubviews={this.props.numToRenderAhead === 0 ? false : true}
         automaticallyAdjustContentInsets={false}
         {...this.props}
@@ -227,7 +231,7 @@ export default class FixedHeightWindowedListView extends React.Component {
    * the viewport.
    */
   __computeRowsToRenderSync(props) {
-    let startTime = new Date();
+    // let startTime = new Date();
     let totalRows = props.dataSource.getRowCount();
 
     if (totalRows === 0) {
@@ -235,7 +239,7 @@ export default class FixedHeightWindowedListView extends React.Component {
       return;
     }
 
-    if (this.props.numToRenderAhead === 0) {
+    if (this.state.lastRow === totalRows - 1 || this.props.numToRenderAhead === 0) {
       return;
     }
 
@@ -252,17 +256,26 @@ export default class FixedHeightWindowedListView extends React.Component {
     // Calculate how many rows have actually been rendered
     let numRendered = lastRow - firstRow + 1;
 
-    // Our last row target that we will approach incrementally
-    let targetLastRow = Math.min(
-      lastVisible + props.numToRenderAhead, // Primary goal -- this is what we need lastVisible for
-      totalRows - 1, // Don't render past the end
+   // Our last row target that we will approach incrementally
+    let targetLastRow = clamp(
+      numRendered - 1, // Don't reduce numRendered when scrolling back up high enough that the target is less than the number of rows currently rendered
+      // Primary goal -- this is what we need lastVisible for
+      lastVisible + props.numToRenderAhead,
+      // Don't render past the end
+      totalRows - 1,
     );
+
 
     if (!this.incrementPending) {
       this.incrementPending = true;
 
       if (targetLastRow > lastRow) {
-        lastRow = clamp(lastRow, targetLastRow, lastRow + this.props.pageSize);
+        if (targetLastRow - lastRow > this.props.numToRenderAhead) {
+          lastRow = targetLastRow;
+        } else {
+          lastRow = clamp(lastRow, targetLastRow, lastRow + this.props.pageSize);
+        }
+        // lastRow = clamp(this.state.lastRow, targetLastRow, totalRows - 1);
       } else if (targetLastRow < lastRow) {
         lastRow = clamp(lastVisible, lastRow - this.props.pageSize, lastRow);
       }
@@ -281,8 +294,8 @@ export default class FixedHeightWindowedListView extends React.Component {
       this.__enqueueComputeRowsToRender(); // Make sure another increment is queued
     }
 
-    let endTime = new Date();
-    console.log('computeRowsToRenderSync: ' + (endTime - startTime));
+    // let endTime = new Date();
+    // console.log('computeRowsToRenderSync: ' + (endTime - startTime));
   }
 
   __calculateSpacers() {

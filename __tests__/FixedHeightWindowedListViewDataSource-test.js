@@ -47,13 +47,19 @@ describe('DataSource', () => {
 
   it('calculates the space between two rows correctly', () => {
     let subject = dataSource.cloneWithCellsAndSections(groupedNames);
-    let lastRow = 12;
-    let sectionB = dataSource.getFirstRowOfSection('B');
-    let expectedHeightBeforeLastRow = sectionHeaderHeight + (cellHeight * lastRow - 1);
-    let expectedSpaceBetween = sectionB.startY - expectedHeightBeforeLastRow;
+    let idx = 12;
+    let expectedHeightBeforeIdx = sectionHeaderHeight + (cellHeight * (idx - 1));
+    expect(subject.getHeightBeforeRow(idx)).toBe(expectedHeightBeforeIdx);
 
-    expect(subject.getHeightBeforeRow(lastRow)).toBe(expectedHeightBeforeLastRow);
-    expect(subject.getHeightBetweenRows(lastRow, sectionB.row)).toBe(expectedSpaceBetween);
+    let sectionB = dataSource.getFirstRowOfSection('B');
+    let expectedSpaceBetween = sectionB.startY - expectedHeightBeforeIdx - 95;
+    expect(subject.getHeightBetweenRows(idx, sectionB.row)).toBe(expectedSpaceBetween);
   });
 
+  it('gets the correct height after row for the last row', () => {
+    let subject = dataSource.cloneWithCellsAndSections(groupedNames);
+    let lastRowIdx = dataSource.getRowCount() - 1;
+
+    expect(subject.getHeightAfterRow(lastRowIdx)).toBe(0);
+  });
 });

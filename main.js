@@ -154,6 +154,7 @@ class AlphabetPicker extends React.Component {
   }
 
   _onPanResponderEnd() {
+    /* TODO: this should use requestIdleCallback */
     requestAnimationFrame(() => {
       this.props.onTouchEnd && this.props.onTouchEnd();
     });
@@ -201,7 +202,7 @@ class ContactCell extends React.Component {
       <View style={styles.cell}>
         <View style={[styles.placeholderCircle, {backgroundColor: randomColor()}]} />
         <Text style={styles.name}>
-          {this.props.data}
+          {this.props.data} {this.props.data.split('').reverse().join('')}
         </Text>
       </View>
     );

@@ -24,25 +24,18 @@ class FixedHeightListViewDataSource {
 
   // Public: Used to set the height of the top spacer
   //
-  // idx - the index of a row in _dataSource
+  // i - the index of a row in _dataSource
   //
   // Returns the height of spacer before the first rendered row.
   //
-  getHeightBeforeRow(rowNumber) {
-    let idx = rowNumber - 1;
+  getHeightBeforeRow(i) {
     let height = 0;
 
     _.forEach(this._lookup, (section, sectionID) => {
-      if (idx >= section.range[0] && // Within the section
-          idx <= section.range[1]) {
+      if (i > section.range[0] && i <= section.range[1]) {
         height += section.sectionHeaderHeight;
-
-        if (idx > section.range[0]) {
-          let numberOfCells = idx - section.range[0];
-          height += numberOfCells * section.cellHeight;
-        }
-
-      } else if (section.range[0] < idx) {
+        height += ((i - 1) - section.range[0]) * section.cellHeight;
+      } else if (section.range[0] < i) {
         height += section.height;
       }
     });
@@ -60,24 +53,26 @@ class FixedHeightListViewDataSource {
     };
   }
 
-  // Public: ..
-  getHeightBetweenRows(rowA, rowB) {
-    return this.getHeightBeforeRow(rowB) - this.getHeightBeforeRow(rowA + 1);
+  // Public: .....
+  getHeightBetweenRows(i, ii) {
+    if (ii < i) {
+      console.warn('provide the lower index first');
+    }
+
+    return this.getHeightBeforeRow(ii) - this.getHeightBeforeRow(i + 1);
   }
 
   // Public: Used to set the height of the bottom spacer
   //
-  // idx - the index of a row in _dataSource
+  // i - the index of a row in _dataSource
   //
   // Returns the height of spacer after the last rendered row.
   //
-  getHeightAfterRow(rowNumber) {
-    let idx = rowNumber - 1;
-
+  getHeightAfterRow(i) {
     return (
       this.getTotalHeight() -
-      this.getHeightBeforeRow(idx) +
-      this.getRowHeight(idx)
+      this.getHeightBeforeRow(i) -
+      this.getRowHeight(i)
     );
   }
 
@@ -106,8 +101,8 @@ class FixedHeightListViewDataSource {
   //
   // Returns whatever is stored in datasource for the given index
   //
-  getRowData(idx) {
-    return this._dataSource[idx];
+  getRowData(i) {
+    return this._dataSource[i];
   }
 
   // Private: Used internally by computeVisibleRows
@@ -131,21 +126,21 @@ class FixedHeightListViewDataSource {
     if (relativeY <= parentSection.sectionHeaderHeight) {
       return parentSection.range[0];
     } else {
-      let idx = Math.floor(
+      let i = Math.floor(
         (relativeY - parentSection.sectionHeaderHeight) /
         parentSection.cellHeight
       );
-      return parentSection.range[0] + idx;
+      return parentSection.range[0] + i;
     }
   }
 
-  getRowHeight(idx) {
-    let row = this._dataSource[idx];
+  getRowHeight(i) {
+    let row = this._dataSource[i];
 
     if (_.isObject(row) && row.sectionID) {
       return this.getSectionHeaderHeight(row.sectionID);
     } else {
-      return this.getCellHeight(idx);
+      return this.getCellHeight(i);
     }
   }
 
@@ -153,15 +148,13 @@ class FixedHeightListViewDataSource {
     return this._lookup[sectionID].sectionHeaderHeight;
   }
 
-  getCellHeight(idx) {
+  getCellHeight(i) {
     let parentSection = _.find(this._lookup, (section) => {
-      return idx >= section.range[0] || idx <= section.range[1];
+      return i >= section.range[0] || i <= section.range[1];
     });
 
     if (parentSection) {
       return parentSection.cellHeight;
-    } else {
-      return 0;
     }
   }
 
@@ -192,24 +185,24 @@ class FixedHeightListViewDataSource {
     // need later:
     // { 'A': { rows: 2, range: [0, 2], height: 250, startY: 0, endY: 250, cellHeight: 95, sectionHeaderHeight: 35} }
     let lastRow = -1;
-    let lastHeight = 0;
+    let cumulativeHeight = 0;
     this._lookup = _.reduce(Object.keys(dataBlob), (result, sectionID) => {
-      let count = dataBlob[sectionID].length;
       let sectionHeaderHeight = this._getHeightForSectionHeader(sectionID);
       let cellHeight = this._getHeightForCell(sectionID);
-      let height = sectionHeaderHeight + cellHeight * count;
+      let count = dataBlob[sectionID].length;
+      let sectionHeight = sectionHeaderHeight + cellHeight * count;
 
       result[sectionID] = {
         count: count + 1, // Factor in section header
         range: [lastRow + 1, lastRow + 1 + count], // Move 1 ahead of previous last row
-        height,
-        startY: lastHeight,
-        endY: lastHeight + height,
+        height: sectionHeight,
+        startY: cumulativeHeight,
+        endY: cumulativeHeight + sectionHeight,
         cellHeight,
         sectionHeaderHeight,
       }
 
-      lastHeight = lastHeight + height;
+      cumulativeHeight += sectionHeight;
       lastRow = lastRow + 1 + count;
 
       return result;
