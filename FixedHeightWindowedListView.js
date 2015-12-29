@@ -139,7 +139,6 @@ export default class FixedHeightWindowedListView extends React.Component {
 
   renderRow(data, unused, idx, key) {
     if (_.isObject(data) && data.sectionId) {
-      console.log(data);
       return this.props.renderSectionHeader(data, unused, idx, key);
     } else {
       return this.props.renderCell(data, unused, idx, key);
@@ -154,7 +153,7 @@ export default class FixedHeightWindowedListView extends React.Component {
     let { spacerTopHeight, spacerBottomHeight, spacerMidHeight } = this.__calculateSpacers();
 
     let rows = [];
-    console.log('sp-top: ' + spacerTopHeight);
+    // console.log('sp-top: ' + spacerTopHeight);
     rows.push(<View key="sp-top" style={{height: spacerTopHeight}} />);
 
     if (bufferFirstRow < firstRow && bufferFirstRow !== null) {
@@ -207,9 +206,20 @@ export default class FixedHeightWindowedListView extends React.Component {
   }
 
   __onScroll(e) {
+    this.prevScrollOffsetY = this.scrollOffsetY || 0;
     this.scrollOffsetY = e.nativeEvent.contentOffset.y;
+    this.scrollDirection = this.__getScrollDirection();
+    console.log(this.scrollDirection);
     this.height = e.nativeEvent.layoutMeasurement.height;
     this.__enqueueComputeRowsToRender();
+  }
+
+  __getScrollDirection() {
+    if (this.scrollOffsetY - this.prevScrollOffsetY >= 0) {
+      return 'down';
+    } else {
+      return 'up';
+    }
   }
 
   __clearEnqueuedComputation() {
