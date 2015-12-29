@@ -178,7 +178,6 @@ export default class FixedHeightWindowedListView extends React.Component {
     return (
       <ScrollView
         scrollEventThrottle={17}
-        decelerationRate={0.99}
         removeClippedSubviews={this.props.numToRenderAhead === 0 ? false : true}
         automaticallyAdjustContentInsets={false}
         {...this.props}
