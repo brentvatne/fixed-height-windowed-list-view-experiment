@@ -47,6 +47,7 @@ export default class FixedHeightWindowedListView extends React.Component {
     this.timeoutHandle = 0;
     this.incrementPending = false;
     this.nextSectionToScrollTo = null;
+    this.scrollDirection = 'down';
 
     let { dataSource, initialNumToRender } = this.props;
 
@@ -152,6 +153,9 @@ export default class FixedHeightWindowedListView extends React.Component {
     let { firstRow, lastRow } = this.state;
     let { spacerTopHeight, spacerBottomHeight, spacerMidHeight } = this.__calculateSpacers();
 
+    console.log('firstRow: ' + firstRow);
+    console.log('lastRow: ' + lastRow);
+
     let rows = [];
     // console.log('sp-top: ' + spacerTopHeight);
     rows.push(<View key="sp-top" style={{height: spacerTopHeight}} />);
@@ -209,7 +213,6 @@ export default class FixedHeightWindowedListView extends React.Component {
     this.prevScrollOffsetY = this.scrollOffsetY || 0;
     this.scrollOffsetY = e.nativeEvent.contentOffset.y;
     this.scrollDirection = this.__getScrollDirection();
-    console.log(this.scrollDirection);
     this.height = e.nativeEvent.layoutMeasurement.height;
     this.__enqueueComputeRowsToRender();
   }
@@ -241,6 +244,83 @@ export default class FixedHeightWindowedListView extends React.Component {
     }
   }
 
+  __computeLastRow({firstRow, numRendered, lastVisible, totalRows}) {
+    let lastRow, targetLastRow;
+
+    if (this.scrollDirection === 'down') {
+      // Our last row target that we will approach incrementally
+      targetLastRow = clamp(
+        numRendered - 1, // Don't reduce numRendered when scrolling back up high enough that the target is less than the number of rows currently rendered
+        lastVisible + this.props.numToRenderAhead, // Primary goal -- this is what we need lastVisible for
+        totalRows - 1, // Don't render past the end
+      );
+
+      if (this.state.lastRow === targetLastRow || targetLastRow === totalRows - 1) {
+        return {};
+      }
+
+      if (!this.incrementPending) {
+        this.incrementPending = true;
+
+        if (targetLastRow > this.state.lastRow) {
+          if (targetLastRow - this.state.lastRow > this.props.numToRenderAhead) {
+            lastRow = targetLastRow;
+          } else {
+            lastRow = clamp(lastRow, targetLastRow, lastRow + this.props.pageSize);
+          }
+          // lastRow = clamp(this.state.lastRow, targetLastRow, totalRows - 1);
+        } else if (targetLastRow < this.state.lastRow) {
+          lastRow = clamp(lastVisible, this.state.lastRow - this.props.pageSize, this.state.lastRow);
+        }
+      }
+    } else if (this.scrollDirection === 'up') {
+      // Once last row is set, figure out the first row
+      lastRow = Math.max(
+        0, // Don't render past the top
+        lastVisible,
+        this.state.lastRow - this.props.pageSize, // Don't exceed max to render
+      );
+      targetLastRow = lastRow;
+    }
+
+    return { lastRow, targetLastRow };
+  }
+
+  __computeFirstRow({lastRow, firstVisible}) {
+    let firstRow, targetFirstRow;
+
+    if (this.scrollDirection === 'down') {
+      // Once last row is set, figure out the first row
+      firstRow = Math.max(
+        0, // Don't render past the top
+        lastRow - this.props.maxNumToRender + 1, // Don't exceed max to render
+      );
+      targetFirstRow = firstRow;
+    } else if (this.scrollDirection === 'up') {
+      // Our last row target that we will approach incrementally
+      targetFirstRow = Math.max(
+        0, // Don't reduce numRendered when scrolling back up high enough that the target is less than the number of rows currently rendered
+        firstVisible - this.props.numToRenderAhead, // Primary goal -- this is what we need lastVisible for
+      );
+
+      if (this.state.firstRow === targetFirstRow || targetFirstRow === 0) {
+        return {};
+      }
+
+      if (!this.incrementPending) {
+        this.incrementPending = true;
+
+        if (targetFirstRow < this.state.firstRow) {
+          firstRow = Math.max(0, this.state.firstRow - this.props.numToRenderAhead);
+        } else {
+          firstRow = targetFirstRow;
+        }
+      }
+    }
+
+    return { firstRow, targetFirstRow };
+  }
+
   /**
    * The result of this is an up-to-date state of firstRow and lastRow, given
    * the viewport.
@@ -248,6 +328,7 @@ export default class FixedHeightWindowedListView extends React.Component {
   __computeRowsToRenderSync(props) {
     // let startTime = new Date();
     let totalRows = props.dataSource.getRowCount();
+    let { dataSource } = this.props;
 
     if (totalRows === 0) {
       this.setState({ firstRow: 0, lastRow: -1 });
@@ -258,58 +339,42 @@ export default class FixedHeightWindowedListView extends React.Component {
       return;
     }
 
-    let top = this.scrollOffsetY;
-    let bottom = top + this.height;
-
-    let { dataSource } = this.props;
-    let { firstRow, lastRow } = this.state;
     let { firstVisible, lastVisible } = dataSource.computeVisibleRows(
       this.scrollOffsetY,
       this.height,
     );
 
     // Calculate how many rows have actually been rendered
-    let numRendered = lastRow - firstRow + 1;
+    let numRendered = this.state.lastRow - this.state.firstRow + 1;
+    let firstRow, lastRow, targetFirstRow, targetLastRow;
 
-   // Our last row target that we will approach incrementally
-    let targetLastRow = clamp(
-      numRendered - 1, // Don't reduce numRendered when scrolling back up high enough that the target is less than the number of rows currently rendered
-      // Primary goal -- this is what we need lastVisible for
-      lastVisible + props.numToRenderAhead,
-      // Don't render past the end
-      totalRows - 1,
-    );
-
-    if (this.state.lastRow === targetLastRow && targetLastRow === totalRows - 1) {
-      return;
-    }
-
-
-    if (!this.incrementPending) {
-      this.incrementPending = true;
-
-      if (targetLastRow > lastRow) {
-        if (targetLastRow - lastRow > this.props.numToRenderAhead) {
-          lastRow = targetLastRow;
-        } else {
-          lastRow = clamp(lastRow, targetLastRow, lastRow + this.props.pageSize);
-        }
-        // lastRow = clamp(this.state.lastRow, targetLastRow, totalRows - 1);
-      } else if (targetLastRow < lastRow) {
-        lastRow = clamp(lastVisible, lastRow - this.props.pageSize, lastRow);
+    if (this.scrollDirection === 'down') {
+      // Find where we are going to render to now and our target rendering row
+      let lastResult = this.__computeLastRow({lastVisible, totalRows});
+      lastRow = lastResult.lastRow;
+      targetLastRow = lastResult.targetLastRow;
+      if (typeof lastRow === 'undefined' || typeof targetLastRow === 'undefined') {
+        return;
       }
+      let firstResult = this.__computeFirstRow({lastRow});
+      firstRow = firstResult.firstRow;
+      targetFirstRow = firstResult.targetFirstRow;
+    } else if (this.scrollDirection === 'up') {
+      let firstResult = this.__computeFirstRow({firstVisible});
+      firstRow = firstResult.targetFirstRow;
+      targetFirstRow = firstResult.targetFirstRow;
+      if (typeof firstRow === 'undefined' || typeof targetFirstRow === 'undefined') {
+        return;
+      }
+      let lastResult = this.__computeLastRow({firstRow, lastVisible});
+      lastRow = lastResult.lastRow;
+      targetLastRow = lastResult.targetLastRow;
     }
-
-    // Once last row is set, figure out the first row
-    firstRow = Math.max(
-      0, // Don't render past the top
-      lastRow - props.maxNumToRender + 1, // Don't exceed max to render
-    );
 
     this.setState({firstRow, lastRow});
 
     // Keep enqueuing updates until we reach the targetLastRow
-    if (lastRow !== targetLastRow) {
+    if (lastRow !== targetLastRow || firstRow !== targetFirstRow) {
       this.__enqueueComputeRowsToRender(); // Make sure another increment is queued
     }
 
