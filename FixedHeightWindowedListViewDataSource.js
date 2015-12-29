@@ -81,7 +81,7 @@ class FixedHeightListViewDataSource {
   //
   computeVisibleRows(scrollY, viewportHeight) {
     let firstVisible = this.getRowAtHeight(scrollY);
-    let lastVisible = this.getRowAtHeight(scrollY + viewportHeight);
+    let lastVisible = this.getRowAtHeight(scrollY + viewportHeight) + 1;
 
     return {
       firstVisible,
