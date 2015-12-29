@@ -31,7 +31,7 @@ class FixedHeightListViewDataSource {
   getHeightBeforeRow(i) {
     let height = 0;
 
-    _.forEach(this._lookup, (section, sectionID) => {
+    _.forEach(this._lookup, (section, sectionId) => {
       if (i > section.range[0] && i <= section.range[1]) {
         height += section.sectionHeaderHeight;
         height += ((i - 1) - section.range[0]) * section.cellHeight;
@@ -43,9 +43,9 @@ class FixedHeightListViewDataSource {
     return height;
   }
 
-  getFirstRowOfSection(sectionID) {
-    let range = this._lookup[sectionID].range;
-    let startY = this._lookup[sectionID].startY;
+  getFirstRowOfSection(sectionId) {
+    let range = this._lookup[sectionId].range;
+    let startY = this._lookup[sectionId].startY;
 
     return {
       row: range[0],
@@ -137,15 +137,15 @@ class FixedHeightListViewDataSource {
   getRowHeight(i) {
     let row = this._dataSource[i];
 
-    if (_.isObject(row) && row.sectionID) {
-      return this.getSectionHeaderHeight(row.sectionID);
+    if (_.isObject(row) && row.sectionId) {
+      return this.getSectionHeaderHeight(row.sectionId);
     } else {
       return this.getCellHeight(i);
     }
   }
 
-  getSectionHeaderHeight(sectionID) {
-    return this._lookup[sectionID].sectionHeaderHeight;
+  getSectionHeaderHeight(sectionId) {
+    return this._lookup[sectionId].sectionHeaderHeight;
   }
 
   getCellHeight(i) {
@@ -171,12 +171,12 @@ class FixedHeightListViewDataSource {
 
   cloneWithCellsAndSections(dataBlob) {
     // Take in { 'A': [{..}, {..}], 'B': [{..}]} and turn it into
-    //         [ { sectionID: 'A' }, {..}, {..}, { sectionID: 'B' }, {..} ]
+    //         [ { sectionId: 'A' }, {..}, {..}, { sectionId: 'B' }, {..} ]
     //
     // This is important because we want to treat section headers just as
     // other rows.
     this._dataSource = _.reduce(dataBlob, (result, value, key) => {
-      result.push({sectionID: key});
+      result.push({sectionId: key});
       result.push.apply(result, value);
       return result;
     }, []);
@@ -186,13 +186,13 @@ class FixedHeightListViewDataSource {
     // { 'A': { rows: 2, range: [0, 2], height: 250, startY: 0, endY: 250, cellHeight: 95, sectionHeaderHeight: 35} }
     let lastRow = -1;
     let cumulativeHeight = 0;
-    this._lookup = _.reduce(Object.keys(dataBlob), (result, sectionID) => {
-      let sectionHeaderHeight = this._getHeightForSectionHeader(sectionID);
-      let cellHeight = this._getHeightForCell(sectionID);
-      let count = dataBlob[sectionID].length;
+    this._lookup = _.reduce(Object.keys(dataBlob), (result, sectionId) => {
+      let sectionHeaderHeight = this._getHeightForSectionHeader(sectionId);
+      let cellHeight = this._getHeightForCell(sectionId);
+      let count = dataBlob[sectionId].length;
       let sectionHeight = sectionHeaderHeight + cellHeight * count;
 
-      result[sectionID] = {
+      result[sectionId] = {
         count: count + 1, // Factor in section header
         range: [lastRow + 1, lastRow + 1 + count], // Move 1 ahead of previous last row
         height: sectionHeight,
@@ -211,8 +211,8 @@ class FixedHeightListViewDataSource {
     return this;
   }
 
-  getHeightOfSection(sectionID) {
-    return this._lookup[sectionID].height;
+  getHeightOfSection(sectionId) {
+    return this._lookup[sectionId].height;
   }
 
   /**

@@ -47,10 +47,14 @@ export default class FixedHeightWindowedListView extends React.Component {
     this.timeoutHandle = 0;
     this.incrementPending = false;
     this.nextSectionToScrollTo = null;
+
+    let { dataSource, initialNumToRender } = this.props;
+
     this.state = {
       firstRow: 0,
-      lastRow:
-        Math.min(this.props.dataSource.getRowCount(), this.props.initialNumToRender) - 1,
+      lastRow: Math.min(dataSource.getRowCount(), initialNumToRender) - 1,
+      bufferFirstRow: null,
+      bufferLastRow: null,
     };
   }
 
@@ -60,9 +64,9 @@ export default class FixedHeightWindowedListView extends React.Component {
       this.scrollRef.getScrollResponder();
   }
 
-  scrollToSectionBuffered(sectionID) {
+  scrollToSectionBuffered(sectionId) {
     if (!this.isScrollingToSection) {
-      let { row, startY } = this.props.dataSource.getFirstRowOfSection(sectionID);
+      let { row, startY } = this.props.dataSource.getFirstRowOfSection(sectionId);
 
       if (row === this.state.firstRow) {
         return;
@@ -106,7 +110,7 @@ export default class FixedHeightWindowedListView extends React.Component {
       });
     } else {
       // Only keep the most recent value
-      this.nextSectionToScrollTo = sectionID;
+      this.nextSectionToScrollTo = sectionId;
     }
   }
 
@@ -134,7 +138,8 @@ export default class FixedHeightWindowedListView extends React.Component {
   }
 
   renderRow(data, unused, idx, key) {
-    if (_.isObject(data) && data.sectionID) {
+    if (_.isObject(data) && data.sectionId) {
+      console.log(data);
       return this.props.renderSectionHeader(data, unused, idx, key);
     } else {
       return this.props.renderCell(data, unused, idx, key);
@@ -149,6 +154,7 @@ export default class FixedHeightWindowedListView extends React.Component {
     let { spacerTopHeight, spacerBottomHeight, spacerMidHeight } = this.__calculateSpacers();
 
     let rows = [];
+    console.log('sp-top: ' + spacerTopHeight);
     rows.push(<View key="sp-top" style={{height: spacerTopHeight}} />);
 
     if (bufferFirstRow < firstRow && bufferFirstRow !== null) {
@@ -164,9 +170,9 @@ export default class FixedHeightWindowedListView extends React.Component {
     }
 
     let totalRows = this.props.dataSource.getRowCount();
-    console.log('totalRows: ' + totalRows);
-    console.log('lastRow: ' + lastRow);
-    console.log('sp-bot: ' + spacerBottomHeight);
+    // console.log('totalRows: ' + totalRows);
+    // console.log('lastRow: ' + lastRow);
+    // console.log('sp-bot: ' + spacerBottomHeight);
     rows.push(<View key="sp-bot" style={{height: spacerBottomHeight}} />);
 
     return (
@@ -239,7 +245,7 @@ export default class FixedHeightWindowedListView extends React.Component {
       return;
     }
 
-    if (this.state.lastRow === totalRows - 1 || this.props.numToRenderAhead === 0) {
+    if (this.props.numToRenderAhead === 0) {
       return;
     }
 
@@ -264,6 +270,10 @@ export default class FixedHeightWindowedListView extends React.Component {
       // Don't render past the end
       totalRows - 1,
     );
+
+    if (this.state.lastRow === targetLastRow && targetLastRow === totalRows - 1) {
+      return;
+    }
 
 
     if (!this.incrementPending) {
