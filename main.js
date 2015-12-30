@@ -88,6 +88,7 @@ class Main extends React.Component {
             pageSize={Platform.OS === 'ios' ? 15 : 8}
             maxNumToRender={70}
             numToRenderAhead={this.state.isTouching ? 0 : 40}
+            numToRenderBehind={4}
           />
         </View>
 

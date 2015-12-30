@@ -4,7 +4,6 @@
 'use strict';
 
 const _ = require('lodash');
-const clamp = require('./clamp');
 const invariant = require('fbjs/lib/invariant');
 
 /**
@@ -16,6 +15,7 @@ const invariant = require('fbjs/lib/invariant');
  *
  */
 class FixedHeightListViewDataSource {
+
   constructor(params) {
     this._dataSource = [];
     this._lookup = {};
@@ -67,8 +67,11 @@ class FixedHeightListViewDataSource {
     let {
       lastRow,
       firstVisible,
+      lastVisible,
       maxNumToRender,
+      numToRenderBehind,
       numToRenderAhead,
+      numRendered,
       firstRendered,
       scrollDirection,
       pageSize,
@@ -78,13 +81,14 @@ class FixedHeightListViewDataSource {
 
     if (scrollDirection === 'down') {
       targetFirstRow = firstRow = Math.max(
-        firstVisible,             // Never hide the first visible row
-        lastRow - maxNumToRender  // Don't exceed max to render
+        0,
+        firstVisible - numToRenderBehind, // Never hide the first visible row
+        lastRow - maxNumToRender,         // Don't exceed max to render
       );
     } else if (scrollDirection === 'up') {
       targetFirstRow = Math.max(
-        0,                               // Don't render past the top
-        firstVisible - numToRenderAhead, // Primary goal -- this is what we need lastVisible for
+        0, // Don't render past the top
+        firstVisible - numToRenderAhead + numToRenderBehind, // Primary goal -- this is what we need lastVisible for
       );
 
       firstRow = Math.max(
@@ -103,6 +107,7 @@ class FixedHeightListViewDataSource {
       numRendered,
       lastVisible,
       totalRows,
+      numToRenderBehind,
       numToRenderAhead,
       lastRendered,
       pageSize,
@@ -114,9 +119,9 @@ class FixedHeightListViewDataSource {
 
     if (scrollDirection === 'down') {
       targetLastRow = Math.min(
-        totalRows - 1,                  // Don't render past the bottom
-        lastVisible + numToRenderAhead, // Primary goal -- this is what we need lastVisible for
-        firstVisible + numRendered + numToRenderAhead, // But don't exceed num to render ahead
+        totalRows - 1, // Don't render past the bottom
+        lastVisible + numToRenderAhead - numToRenderBehind, // Primary goal -- this is what we need lastVisible for
+        firstVisible + numRendered + numToRenderAhead - numToRenderBehind, // But don't exceed num to render ahead
       );
 
       lastRow = Math.min(

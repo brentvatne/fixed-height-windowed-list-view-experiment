@@ -74,6 +74,7 @@ describe('DataSource', () => {
       pageSize: 10,
       maxNumToRender: 15,
       numToRenderAhead: 10,
+      numToRenderBehind: 0,
       totalRows: 100,
     };
 
@@ -92,5 +93,39 @@ describe('DataSource', () => {
 
     expect(downScroll.lastRow).toBe(35);
     expect(downScroll.firstRow).toBe(20);
+  });
+
+  it('factors in render-behind', () => {
+    let subject = dataSource.cloneWithCellsAndSections(groupedNames);
+
+    let baseConfig = {
+      firstRendered: 20,
+      lastRendered: 30,
+
+      firstVisible: 20,
+      lastVisible: 25,
+
+      pageSize: 10,
+      maxNumToRender: 15,
+      numToRenderAhead: 10,
+      numToRenderBehind: 2,
+      totalRows: 100,
+    };
+
+    let upScroll = dataSource.computeRowsToRender({
+      scrollDirection: 'up',
+      ...baseConfig,
+    });
+
+    expect(upScroll.firstRow).toBe(12);
+    expect(upScroll.lastRow).toBe(27);
+
+    let downScroll = dataSource.computeRowsToRender({
+      scrollDirection: 'down',
+      ...baseConfig,
+    });
+
+    expect(downScroll.lastRow).toBe(33);
+    expect(downScroll.firstRow).toBe(18);
   });
 });

@@ -33,6 +33,7 @@ export default class FixedHeightWindowedListView extends React.Component {
 
   constructor(props) {
     super(props);
+
     invariant(
       this.props.numToRenderAhead < this.props.maxNumToRender,
       'FixedHeightWindowedListView: numToRenderAhead must be less than maxNumToRender'
@@ -118,7 +119,7 @@ export default class FixedHeightWindowedListView extends React.Component {
   scrollToSectionBuffered(sectionId) {
     if (!this.isScrollingToSection) {
       let { row, startY } = this.props.dataSource.getFirstRowOfSection(sectionId);
-      let { initialNumToRender } = this.props;
+      let { initialNumToRender, numToRenderBehind } = this.props;
       let totalRows = this.props.dataSource.getRowCount();
       let lastRow = totalRows - 1;
 
@@ -130,10 +131,13 @@ export default class FixedHeightWindowedListView extends React.Component {
       this.__clearEnqueuedComputation();
       this.isScrollingToSection = true;
 
+      let windowFirstRow = Math.max(0, row - numToRenderBehind);
+      let windowLastRow = Math.min(lastRow, row + initialNumToRender);
+
       // Set up the buffer
       this.setState({
-        bufferFirstRow: row,
-        bufferLastRow: Math.min(lastRow, row + initialNumToRender), // lol no
+        bufferFirstRow: windowFirstRow,
+        bufferLastRow: windowLastRow,
       }, () => {
         // Now that the buffer is rendered, scroll to it
         // TODO: if we drop frames on rendering the buffer, we will get a white flash :(
@@ -147,8 +151,8 @@ export default class FixedHeightWindowedListView extends React.Component {
           this.isScrollingToSection = false;
 
           this.setState({
-            firstRow: row,
-            lastRow: Math.min(lastRow, row + initialNumToRender),
+            firstRow: windowFirstRow,
+            lastRow: windowLastRow,
             bufferFirstRow: null,
             bufferLastRow: null,
           });
@@ -276,6 +280,7 @@ export default class FixedHeightWindowedListView extends React.Component {
       maxNumToRender: props.maxNumToRender,
       pageSize: props.pageSize,
       numToRenderAhead: props.numToRenderAhead,
+      numToRenderBehind: props.numToRenderBehind,
       totalRows,
     });
 
