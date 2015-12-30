@@ -26,8 +26,8 @@ import _ from 'lodash';
  * Rendering is done incrementally by row to minimize the amount of work done
  * per JS event tick.
  *
- * Rows must have a pre-determined height, thus FixedHeight.
- *
+ * Rows must have a pre-determined height, thus FixedHeight. The height
+ * of the rows can vary depending on the section that they are in.
  */
 export default class FixedHeightWindowedListView extends React.Component {
 
@@ -113,6 +113,9 @@ export default class FixedHeightWindowedListView extends React.Component {
   scrollToSectionBuffered(sectionId) {
     if (!this.isScrollingToSection) {
       let { row, startY } = this.props.dataSource.getFirstRowOfSection(sectionId);
+      let { initialNumToRender } = this.props;
+      let totalRows = this.props.dataSource.getRowCount();
+      let lastRow = totalRows - 1;
 
       if (row === this.state.firstRow) {
         return;
@@ -125,7 +128,7 @@ export default class FixedHeightWindowedListView extends React.Component {
       // Set up the buffer
       this.setState({
         bufferFirstRow: row,
-        bufferLastRow: row + 8, // lol no
+        bufferLastRow: Math.min(lastRow, row + initialNumToRender), // lol no
       }, () => {
         // Now that the buffer is rendered, scroll to it
         // TODO: if we drop frames on rendering the buffer, we will get a white flash :(
@@ -140,7 +143,7 @@ export default class FixedHeightWindowedListView extends React.Component {
 
           this.setState({
             firstRow: row,
-            lastRow: row + 8,
+            lastRow: Math.min(lastRow, row + initialNumToRender),
             bufferFirstRow: null,
             bufferLastRow: null,
           });
@@ -238,8 +241,8 @@ export default class FixedHeightWindowedListView extends React.Component {
    * the viewport.
    */
   __computeRowsToRenderSync(props) {
-    let totalRows = props.dataSource.getRowCount();
     let { dataSource } = this.props;
+    let totalRows = dataSource.getRowCount();
 
     if (totalRows === 0) {
       this.setState({ firstRow: 0, lastRow: -1 });
@@ -273,12 +276,16 @@ export default class FixedHeightWindowedListView extends React.Component {
 
     this.setState({firstRow, lastRow});
 
-    // Keep enqueuing updates until we reach the targetLastRow
+    // Keep enqueuing updates until we reach the targetLastRow or
+    // targetFirstRow
     if (lastRow !== targetLastRow || firstRow !== targetFirstRow) {
-      this.__enqueueComputeRowsToRender(); // Make sure another increment is queued
+      this.__enqueueComputeRowsToRender();
     }
   }
 
+  /**
+   * TODO: pull this out into data source, add tests
+   */
   __calculateSpacers() {
     let { bufferFirstRow, bufferLastRow } = this.state;
     let { firstRow, lastRow } = this.state;
@@ -302,10 +309,6 @@ export default class FixedHeightWindowedListView extends React.Component {
       spacerBottomHeight -= spacerMidHeight;
     }
 
-    // console.log('spacerMidHeight: ' + spacerMidHeight);
-    // console.log('lastRow: ' + lastRow);
-    // console.log('spacerBottomHeight: ' + spacerBottomHeight);
-
     return {
       spacerTopHeight,
       spacerBottomHeight,
@@ -324,6 +327,7 @@ FixedHeightWindowedListView.propTypes = {
   initialNumToRender: React.PropTypes.number,
   maxNumToRender: React.PropTypes.number,
   numToRenderAhead: React.PropTypes.number,
+  numToRenderBehind: React.PropTypes.number,
   pageSize: React.PropTypes.number,
 };
 
@@ -332,6 +336,7 @@ FixedHeightWindowedListView.defaultProps = {
   initialNumToRender: 1,
   maxNumToRender: 20,
   numToRenderAhead: 4,
+  numToRenderBehind: 2,
   pageSize: 5,
 };
 
