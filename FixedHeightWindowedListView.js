@@ -258,10 +258,6 @@ export default class FixedHeightWindowedListView extends React.Component {
       return;
     }
 
-    if (this.state.lastRow >= (totalRows - 1)) {
-      return;
-    }
-
     if (this.props.numToRenderAhead === 0) {
       return;
     }
@@ -270,6 +266,10 @@ export default class FixedHeightWindowedListView extends React.Component {
       this.scrollOffsetY,
       this.height,
     );
+
+    if (lastVisible >= (totalRows - 1)) {
+      return;
+    }
 
     let { firstRow, lastRow, targetFirstRow, targetLastRow } = dataSource.computeRowsToRender({
       scrollDirection: this.scrollDirection,
