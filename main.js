@@ -103,7 +103,7 @@ class Main extends React.Component {
   _renderSectionHeader(data) {
     return (
       <View style={{height: 35, justifyContent: 'center', backgroundColor: '#eee', paddingLeft: 10}}>
-        <Text>{data.sectionID}!!</Text>
+        <Text>{data.sectionId}</Text>
       </View>
     );
   }

@@ -267,6 +267,7 @@ export default class FixedHeightWindowedListView extends React.Component {
       maxNumToRender: props.maxNumToRender,
       pageSize: props.pageSize,
       numToRenderAhead: props.numToRenderAhead,
+      totalRows,
     });
 
     this.setState({firstRow, lastRow});

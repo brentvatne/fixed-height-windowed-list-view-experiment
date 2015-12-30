@@ -9,9 +9,11 @@
   "author": "brentvatne@gmail.com",
   "dependencies": {
     "babel-plugin-syntax-trailing-function-commas": "^6.3.13",
+    "babel-plugin-transform-object-rest-spread": "^6.3.13",
     "babel-preset-stage-0": "^6.3.13",
     "babel-preset-stage-3": "^6.3.13",
     "fbemitter": "^2.0.0",
+    "fbjs": "^0.6.0",
     "immutable": "^3.7.5",
     "invariant": "^2.2.0",
     "lodash": "^3.10.1",

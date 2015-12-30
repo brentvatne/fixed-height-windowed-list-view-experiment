@@ -5,8 +5,10 @@
 
 const _ = require('lodash');
 const clamp = require('./clamp');
+const invariant = require('fbjs/lib/invariant');
 
-/* Helper class to perform calcuations required by FixedHeightWindowedListView.
+/**
+ * Helper class to perform calcuations required by FixedHeightWindowedListView.
  *
  * sectionHeader: Different height from cell, groups cells
  * cell: Content that is not a section header
@@ -20,6 +22,45 @@ class FixedHeightListViewDataSource {
 
     this._getHeightForSectionHeader = params.getHeightForSectionHeader;
     this._getHeightForCell = params.getHeightForCell;
+  }
+
+  computeRowsToRender(options) {
+    let {
+      scrollDirection,
+      firstVisible,
+      lastVisible,
+      firstRendered,
+      lastRendered,
+      pageSize,
+      maxNumToRender,
+      numToRenderAhead,
+    } = options;
+
+    invariant(
+      numToRenderAhead < maxNumToRender,
+      "numToRenderAhead must be less than maxNumToRender",
+    );
+
+    let numRendered = lastRendered - firstRendered + 1;
+    let lastRow, targetLastRow, firstRow, targetFirstRow;
+
+    if (scrollDirection === 'down') {
+      let lastResult = this.__computeLastRow({numRendered, ...options});
+      lastRow = lastResult.lastRow;
+      targetLastRow = lastResult.targetLastRow;
+      let firstResult = this.__computeFirstRow({lastRow, numRendered, ...options});
+      firstRow = firstResult.firstRow;
+      targetFirstRow = firstResult.targetFirstRow;
+    } else if (scrollDirection === 'up') {
+      let firstResult = this.__computeFirstRow({numRendered, ...options});
+      firstRow = firstResult.firstRow;
+      targetFirstRow = firstResult.targetFirstRow;
+      let lastResult = this.__computeLastRow({firstRow, numRendered, ...options});
+      lastRow = lastResult.lastRow;
+      targetLastRow = lastResult.targetLastRow;
+    }
+
+    return { firstRow, lastRow, targetFirstRow, targetLastRow };
   }
 
   __computeFirstRow(options) {
@@ -37,8 +78,8 @@ class FixedHeightListViewDataSource {
 
     if (scrollDirection === 'down') {
       targetFirstRow = firstRow = Math.max(
-        0,                           // Don't render past the top
-        lastRow - maxNumToRender + 1 // Don't exceed max to render
+        firstVisible,             // Never hide the first visible row
+        lastRow - maxNumToRender  // Don't exceed max to render
       );
     } else if (scrollDirection === 'up') {
       targetFirstRow = Math.max(
@@ -57,6 +98,7 @@ class FixedHeightListViewDataSource {
 
   __computeLastRow(options) {
     let {
+      firstVisible,
       firstRow,
       numRendered,
       lastVisible,
@@ -71,82 +113,36 @@ class FixedHeightListViewDataSource {
     let lastRow, targetLastRow;
 
     if (scrollDirection === 'down') {
-      targetLastRow = clamp(
-        numRendered - 1,                // Don't reduce numRendered when scrolling back up high enough that the target is less than the number of rows currently rendered
+      targetLastRow = Math.min(
+        totalRows - 1,                  // Don't render past the bottom
         lastVisible + numToRenderAhead, // Primary goal -- this is what we need lastVisible for
-        totalRows - 1                   // Don't render past the end
+        firstVisible + numRendered + numToRenderAhead, // But don't exceed num to render ahead
       );
 
-      if (lastRendered === targetLastRow || targetLastRow === totalRows - 1) {
-        return { targetLastRow, lastRow: targetLastRow };
-      }
-
-      if (targetLastRow > lastRendered) {
-        if (targetLastRow - lastRendered > numToRenderAhead) {
-          lastRow = targetLastRow;
-        } else {
-          lastRow = clamp(lastRendered, targetLastRow, lastRow + pageSize);
-        }
-      } else if (targetLastRow < lastRendered) {
-        lastRow = clamp(lastVisible, lastRendered - pageSize, lastRendered);
-      }
+      lastRow = Math.min(
+        targetLastRow,
+        lastRendered + pageSize,
+      );
     } else if (scrollDirection === 'up') {
-      targetLastRow = lastRow = Math.max(
-        0,                        // Don't render past the top
-        lastVisible + (maxNumToRender - numToRenderAhead),
-        lastRendered - pageSize, // Don't exceed max to render
-      );
+      targetLastRow = lastRow = lastRendered;
+
+      let numToBeRendered = (lastRendered - firstRow);
+      if (numToBeRendered > maxNumToRender) {
+        targetLastRow = lastRow = targetLastRow - (numToBeRendered - maxNumToRender);
+      }
     }
 
     return { lastRow, targetLastRow };
   }
 
-  computeRowsToRender(options) {
-    let {
-      scrollDirection,
-      firstVisible,
-      lastVisible,
-      firstRendered,
-      lastRendered,
-      pageSize,
-      maxNumToRender,
-      numToRenderAhead,
-    } = options;
 
-    let numRendered = lastRendered - firstRendered + 1;
-    let lastRow, targetLastRow, firstRow, targetFirstRow;
-
-    if (scrollDirection === 'down') {
-      let lastResult = this.__computeLastRow({numRendered, ...options});
-      lastRow = lastResult.lastRow;
-      targetLastRow = lastResult.targetLastRow;
-
-      // if (typeof lastRow === 'undefined' || typeof targetLastRow === 'undefined') return {};
-
-      let firstResult = this.__computeFirstRow({lastRow, numRendered, ...options});
-      firstRow = firstResult.firstRow;
-      targetFirstRow = firstResult.targetFirstRow;
-    } else if (scrollDirection === 'up') {
-      let firstResult = this.__computeFirstRow({numRendered, ...options});
-      firstRow = firstResult.firstRow;
-      targetFirstRow = firstResult.targetFirstRow;
-
-      // if (typeof firstRow === 'undefined' || typeof targetFirstRow === 'undefined') return {};
-
-      let lastResult = this.__computeLastRow({firstRow, numRendered, ...options});
-      lastRow = lastResult.lastRow;
-      targetLastRow = lastResult.targetLastRow;
-    }
-
-    return { firstRow, lastRow, targetFirstRow, targetLastRow };
-  }
-
-  // Public: Used to set the height of the top spacer
-  //
-  // i - the index of a row in _dataSource
-  //
-  // Returns the height of spacer before the first rendered row.
-  //
+  /**
+   * Public: Used to set the height of the top spacer
+   *
+   * i - the index of a row in _dataSource
+   *
+   * Returns the height of spacer before the first rendered row.
+   */
   getHeightBeforeRow(i) {
     let height = 0;
 
@@ -172,7 +168,9 @@ class FixedHeightListViewDataSource {
     };
   }
 
-  // Public: .....
+  /**
+   * Public: .....
+   */
   getHeightBetweenRows(i, ii) {
     if (ii < i) {
       console.warn('provide the lower index first');
@@ -181,12 +179,13 @@ class FixedHeightListViewDataSource {
     return this.getHeightBeforeRow(ii) - this.getHeightBeforeRow(i + 1);
   }
 
-  // Public: Used to set the height of the bottom spacer
-  //
-  // i - the index of a row in _dataSource
-  //
-  // Returns the height of spacer after the last rendered row.
-  //
+  /**
+   * Public: Used to set the height of the bottom spacer
+   *
+   * i - the index of a row in _dataSource
+   *
+   * Returns the height of spacer after the last rendered row.
+   */
   getHeightAfterRow(i) {
     return (
       this.getTotalHeight() -
@@ -195,9 +194,10 @@ class FixedHeightListViewDataSource {
     );
   }
 
-  // Public: Used by computeRowsToRenderSync to determine what the target
-  // last row is (lastVisible + numToRenderAhead)
-  //
+  /**
+   * Public: Used by computeRowsToRenderSync to determine what the target
+   * last row is (lastVisible + numToRenderAhead)
+   */
   computeVisibleRows(scrollY, viewportHeight) {
     let firstVisible = this.getRowAtHeight(scrollY);
     let lastVisible = this.getRowAtHeight(scrollY + viewportHeight) + 1;
@@ -209,29 +209,32 @@ class FixedHeightListViewDataSource {
   }
 
 
-  // Public: Gets the number of rows (cells + section headers)
-  //
-  // Returns the number of rows.
-  //
+  /**
+   * Public: Gets the number of rows (cells + section headers)
+   *
+   * Returns the number of rows.
+   */
   getRowCount() {
     return this._dataSource.length;
   }
 
-  // Public: Gets the data for a cell or header at the given row index
-  //
-  // Returns whatever is stored in datasource for the given index
-  //
+  /**
+   * Public: Gets the data for a cell or header at the given row index
+   *
+   * Returns whatever is stored in datasource for the given index
+   */
   getRowData(i) {
     return this._dataSource[i];
   }
 
-  // Private: Used internally by computeVisibleRows
-  //
-  // scrollY - the Y position at the top of the ScrollView
-  //
-  // Returns the index of the row in the _dataSource array that should be
-  // rendered at the given scrollY.
-  //
+  /**
+   * Private: Used internally by computeVisibleRows
+   *
+   * scrollY - the Y position at the top of the ScrollView
+   *
+   * Returns the index of the row in the _dataSource array that should be
+   * rendered at the given scrollY.
+   */
   getRowAtHeight(scrollY) {
     if (scrollY < 0 || scrollY > this.getTotalHeight()) {
       return 0;
@@ -313,7 +316,7 @@ class FixedHeightListViewDataSource {
       let sectionHeight = sectionHeaderHeight + cellHeight * count;
 
       result[sectionId] = {
-        count: count + 1, // Factor in section header
+        count: count + 1,                          // Factor in section header
         range: [lastRow + 1, lastRow + 1 + count], // Move 1 ahead of previous last row
         height: sectionHeight,
         startY: cumulativeHeight,
