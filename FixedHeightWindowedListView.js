@@ -73,9 +73,6 @@ export default class FixedHeightWindowedListView extends React.Component {
     let { firstRow, lastRow } = this.state;
     let { spacerTopHeight, spacerBottomHeight, spacerMidHeight } = this.__calculateSpacers();
 
-    console.log('firstRow: ' + firstRow);
-    console.log('lastRow: ' + lastRow);
-
     let rows = [];
     rows.push(<View key="sp-top" style={{height: spacerTopHeight}} />);
 
@@ -249,6 +246,10 @@ export default class FixedHeightWindowedListView extends React.Component {
       return;
     }
 
+    if (this.state.lastRow >= (totalRows - 1)) {
+      return;
+    }
+
     if (this.props.numToRenderAhead === 0) {
       return;
     }
@@ -300,6 +301,10 @@ export default class FixedHeightWindowedListView extends React.Component {
 
       spacerBottomHeight -= spacerMidHeight;
     }
+
+    // console.log('spacerMidHeight: ' + spacerMidHeight);
+    // console.log('lastRow: ' + lastRow);
+    // console.log('spacerBottomHeight: ' + spacerBottomHeight);
 
     return {
       spacerTopHeight,
