@@ -169,7 +169,7 @@ class FixedHeightListViewDataSource {
   }
 
   /**
-   * Public: .....
+   * Public: Find the height between index i and index ii, where i < ii
    */
   getHeightBetweenRows(i, ii) {
     if (ii < i) {
@@ -207,7 +207,6 @@ class FixedHeightListViewDataSource {
       lastVisible,
     };
   }
-
 
   /**
    * Public: Gets the number of rows (cells + section headers)
@@ -293,20 +292,22 @@ class FixedHeightListViewDataSource {
   }
 
   cloneWithCellsAndSections(dataBlob) {
-    // Take in { 'A': [{..}, {..}], 'B': [{..}]} and turn it into
-    //         [ { sectionId: 'A' }, {..}, {..}, { sectionId: 'B' }, {..} ]
-    //
-    // This is important because we want to treat section headers just as
-    // other rows.
+    /* Take in { 'A': [{..}, {..}], 'B': [{..}]} and turn it into
+     *         [ { sectionId: 'A' }, {..}, {..}, { sectionId: 'B' }, {..} ]
+     *
+     * This is important because we want to treat section headers just as
+     * other rows.
+     */
     this._dataSource = _.reduce(dataBlob, (result, value, key) => {
       result.push({sectionId: key});
       result.push.apply(result, value);
       return result;
     }, []);
 
-    // Build a data structure like this so we can easily perform calculations we
-    // need later:
-    // { 'A': { rows: 2, range: [0, 2], height: 250, startY: 0, endY: 250, cellHeight: 95, sectionHeaderHeight: 35} }
+    /* Build a data structure like this so we can easily perform calculations we
+     * need later:
+     * { 'A': { rows: 2, range: [0, 2], height: 250, startY: 0, endY: 250, cellHeight: 95, sectionHeaderHeight: 35} }
+     */
     let lastRow = -1;
     let cumulativeHeight = 0;
     this._lookup = _.reduce(Object.keys(dataBlob), (result, sectionId) => {

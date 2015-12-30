@@ -38,6 +38,11 @@ export default class FixedHeightWindowedListView extends React.Component {
       'FixedHeightWindowedListView: numToRenderAhead must be less than maxNumToRender'
     );
 
+    invariant(
+      this.props.numToRenderBehind < this.props.maxNumToRender,
+      'FixedHeightWindowedListView: numToRenderBehind must be less than maxNumToRender'
+    );
+
     this.__onScroll = this.__onScroll.bind(this);
     this.__enqueueComputeRowsToRender = this.__enqueueComputeRowsToRender.bind(this);
     this.__computeRowsToRenderSync = this.__computeRowsToRenderSync.bind(this);

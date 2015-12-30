@@ -154,7 +154,6 @@ class AlphabetPicker extends React.Component {
   }
 
   _onPanResponderEnd() {
-    /* TODO: this should use requestIdleCallback */
     requestAnimationFrame(() => {
       this.props.onTouchEnd && this.props.onTouchEnd();
     });
@@ -233,6 +232,7 @@ let styles = StyleSheet.create({
     backgroundColor: '#ccc',
     borderRadius: 25,
     marginRight: 10,
+    marginLeft: 5,
   },
   name: {
     fontSize: 15,
