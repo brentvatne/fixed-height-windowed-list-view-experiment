@@ -45,7 +45,6 @@ export default class FixedHeightWindowedListView extends React.Component {
     this.height = 0;
     this.willComputeRowsToRender = false;
     this.timeoutHandle = 0;
-    this.incrementPending = false;
     this.nextSectionToScrollTo = null;
     this.scrollDirection = 'down';
 
@@ -57,6 +56,55 @@ export default class FixedHeightWindowedListView extends React.Component {
       bufferFirstRow: null,
       bufferLastRow: null,
     };
+  }
+
+  componentWillReceiveProps(newProps) {
+    this.__computeRowsToRenderSync(newProps);
+  }
+
+  componentWillUnmount() {
+    clearTimeout(this.timeoutHandle);
+  }
+
+  render() {
+    this.__rowCache = this.__rowCache || {};
+
+    let { bufferFirstRow, bufferLastRow } = this.state;
+    let { firstRow, lastRow } = this.state;
+    let { spacerTopHeight, spacerBottomHeight, spacerMidHeight } = this.__calculateSpacers();
+
+    console.log('firstRow: ' + firstRow);
+    console.log('lastRow: ' + lastRow);
+
+    let rows = [];
+    rows.push(<View key="sp-top" style={{height: spacerTopHeight}} />);
+
+    if (bufferFirstRow < firstRow && bufferFirstRow !== null) {
+      this.__renderCells(rows, bufferFirstRow, bufferLastRow);
+      rows.push(<View key="sp-mid" style={{height: spacerMidHeight}} />);
+    }
+
+    this.__renderCells(rows, firstRow, lastRow);
+
+    if (bufferFirstRow > lastRow && bufferFirstRow !== null) {
+      rows.push(<View key="sp-mid" style={{height: spacerMidHeight}} />);
+      this.__renderCells(rows, bufferFirstRow, bufferLastRow);
+    }
+
+    let totalRows = this.props.dataSource.getRowCount();
+    rows.push(<View key="sp-bot" style={{height: spacerBottomHeight}} />);
+
+    return (
+      <ScrollView
+        scrollEventThrottle={17}
+        removeClippedSubviews={this.props.numToRenderAhead === 0 ? false : true}
+        automaticallyAdjustContentInsets={false}
+        {...this.props}
+        ref={(ref) => { this.scrollRef = ref; }}
+        onScroll={this.__onScroll}>
+        {rows}
+      </ScrollView>
+    );
   }
 
   getScrollResponder() {
@@ -90,7 +138,7 @@ export default class FixedHeightWindowedListView extends React.Component {
         // A delay is necessary on Android, otherwise we get screen flashes
         // when the buffered section is above the main window. Might be a
         // ScrollView bug -- works fine on iOS without it, thus "maybe"
-        this.maybeWait(() => {
+        this.__maybeWait(() => {
           this.isScrollingToSection = false;
 
           this.setState({
@@ -110,12 +158,16 @@ export default class FixedHeightWindowedListView extends React.Component {
         });
       });
     } else {
-      // Only keep the most recent value
-      this.nextSectionToScrollTo = sectionId;
+      this.nextSectionToScrollTo = sectionId; // Only keep the most recent value
     }
   }
 
-  maybeWait(callback) {
+  scrollWithoutAnimationTo(destY, destX) {
+    this.scrollRef &&
+      this.scrollRef.scrollWithoutAnimationTo(destY, destX);
+  }
+
+  __maybeWait(callback) {
     if (Platform.OS === 'android') {
       setTimeout(() => {
         callback();
@@ -123,72 +175,6 @@ export default class FixedHeightWindowedListView extends React.Component {
     } else {
       callback();
     }
-  }
-
-  scrollWithoutAnimationTo(destY?: number, destX?: number) {
-    this.scrollRef &&
-      this.scrollRef.scrollWithoutAnimationTo(destY, destX);
-  }
-
-  componentWillReceiveProps(newProps) {
-    this.__computeRowsToRenderSync(newProps);
-  }
-
-  componentWillUnmount() {
-    clearTimeout(this.timeoutHandle);
-  }
-
-  renderRow(data, unused, idx, key) {
-    if (_.isObject(data) && data.sectionId) {
-      return this.props.renderSectionHeader(data, unused, idx, key);
-    } else {
-      return this.props.renderCell(data, unused, idx, key);
-    }
-  }
-
-  render() {
-    this.__rowCache = this.__rowCache || {};
-
-    let { bufferFirstRow, bufferLastRow } = this.state;
-    let { firstRow, lastRow } = this.state;
-    let { spacerTopHeight, spacerBottomHeight, spacerMidHeight } = this.__calculateSpacers();
-
-    console.log('firstRow: ' + firstRow);
-    console.log('lastRow: ' + lastRow);
-
-    let rows = [];
-    // console.log('sp-top: ' + spacerTopHeight);
-    rows.push(<View key="sp-top" style={{height: spacerTopHeight}} />);
-
-    if (bufferFirstRow < firstRow && bufferFirstRow !== null) {
-      this.__renderCells(rows, bufferFirstRow, bufferLastRow);
-      rows.push(<View key="sp-mid" style={{height: spacerMidHeight}} />);
-    }
-
-    this.__renderCells(rows, firstRow, lastRow);
-
-    if (bufferFirstRow > lastRow && bufferFirstRow !== null) {
-      rows.push(<View key="sp-mid" style={{height: spacerMidHeight}} />);
-      this.__renderCells(rows, bufferFirstRow, bufferLastRow);
-    }
-
-    let totalRows = this.props.dataSource.getRowCount();
-    // console.log('totalRows: ' + totalRows);
-    // console.log('lastRow: ' + lastRow);
-    // console.log('sp-bot: ' + spacerBottomHeight);
-    rows.push(<View key="sp-bot" style={{height: spacerBottomHeight}} />);
-
-    return (
-      <ScrollView
-        scrollEventThrottle={17}
-        removeClippedSubviews={this.props.numToRenderAhead === 0 ? false : true}
-        automaticallyAdjustContentInsets={false}
-        {...this.props}
-        ref={(ref) => { this.scrollRef = ref; }}
-        onScroll={this.__onScroll}>
-        {rows}
-      </ScrollView>
-    );
   }
 
   __renderCells(rows, firstRow, lastRow) {
@@ -201,11 +187,19 @@ export default class FixedHeightWindowedListView extends React.Component {
           key={key}
           rowIndex={idx}
           shouldUpdate={data !== this.__rowCache[key]}
-          render={this.renderRow.bind(this, data, 0, idx, key)}
+          render={this.__renderRow.bind(this, data, 0, idx, key)}
         />
       );
 
       this.__rowCache[key] = data;
+    }
+  }
+
+  __renderRow(data, unused, idx, key) {
+    if (_.isObject(data) && data.sectionId) {
+      return this.props.renderSectionHeader(data, unused, idx, key);
+    } else {
+      return this.props.renderCell(data, unused, idx, key);
     }
   }
 
@@ -228,7 +222,6 @@ export default class FixedHeightWindowedListView extends React.Component {
   __clearEnqueuedComputation() {
     clearTimeout(this.timeoutHandle);
     this.willComputeRowsToRender = false;
-    this.incrementPending = false;
   }
 
   __enqueueComputeRowsToRender() {
@@ -238,87 +231,9 @@ export default class FixedHeightWindowedListView extends React.Component {
 
       this.timeoutHandle = setTimeout(() => {
         this.willComputeRowsToRender = false;
-        this.incrementPending = false;
         this.__computeRowsToRenderSync(this.props);
       }, this.props.incrementDelay);
     }
-  }
-
-  __computeLastRow({firstRow, numRendered, lastVisible, totalRows}) {
-    let lastRow, targetLastRow;
-
-    if (this.scrollDirection === 'down') {
-      // Our last row target that we will approach incrementally
-      targetLastRow = clamp(
-        numRendered - 1, // Don't reduce numRendered when scrolling back up high enough that the target is less than the number of rows currently rendered
-        lastVisible + this.props.numToRenderAhead, // Primary goal -- this is what we need lastVisible for
-        totalRows - 1, // Don't render past the end
-      );
-
-      if (this.state.lastRow === targetLastRow || targetLastRow === totalRows - 1) {
-        return {};
-      }
-
-      if (!this.incrementPending) {
-        this.incrementPending = true;
-
-        if (targetLastRow > this.state.lastRow) {
-          if (targetLastRow - this.state.lastRow > this.props.numToRenderAhead) {
-            lastRow = targetLastRow;
-          } else {
-            lastRow = clamp(lastRow, targetLastRow, lastRow + this.props.pageSize);
-          }
-          // lastRow = clamp(this.state.lastRow, targetLastRow, totalRows - 1);
-        } else if (targetLastRow < this.state.lastRow) {
-          lastRow = clamp(lastVisible, this.state.lastRow - this.props.pageSize, this.state.lastRow);
-        }
-      }
-    } else if (this.scrollDirection === 'up') {
-      // Once last row is set, figure out the first row
-      lastRow = Math.max(
-        0, // Don't render past the top
-        lastVisible,
-        this.state.lastRow - this.props.pageSize, // Don't exceed max to render
-      );
-      targetLastRow = lastRow;
-    }
-
-    return { lastRow, targetLastRow };
-  }
-
-  __computeFirstRow({lastRow, firstVisible}) {
-    let firstRow, targetFirstRow;
-
-    if (this.scrollDirection === 'down') {
-      // Once last row is set, figure out the first row
-      firstRow = Math.max(
-        0, // Don't render past the top
-        lastRow - this.props.maxNumToRender + 1, // Don't exceed max to render
-      );
-      targetFirstRow = firstRow;
-    } else if (this.scrollDirection === 'up') {
-      // Our last row target that we will approach incrementally
-      targetFirstRow = Math.max(
-        0, // Don't reduce numRendered when scrolling back up high enough that the target is less than the number of rows currently rendered
-        firstVisible - this.props.numToRenderAhead, // Primary goal -- this is what we need lastVisible for
-      );
-
-      if (this.state.firstRow === targetFirstRow || targetFirstRow === 0) {
-        return {};
-      }
-
-      if (!this.incrementPending) {
-        this.incrementPending = true;
-
-        if (targetFirstRow < this.state.firstRow) {
-          firstRow = Math.max(0, this.state.firstRow - this.props.numToRenderAhead);
-        } else {
-          firstRow = targetFirstRow;
-        }
-      }
-    }
-
-    return { firstRow, targetFirstRow };
   }
 
   /**
@@ -326,7 +241,6 @@ export default class FixedHeightWindowedListView extends React.Component {
    * the viewport.
    */
   __computeRowsToRenderSync(props) {
-    // let startTime = new Date();
     let totalRows = props.dataSource.getRowCount();
     let { dataSource } = this.props;
 
@@ -344,32 +258,16 @@ export default class FixedHeightWindowedListView extends React.Component {
       this.height,
     );
 
-    // Calculate how many rows have actually been rendered
-    let numRendered = this.state.lastRow - this.state.firstRow + 1;
-    let firstRow, lastRow, targetFirstRow, targetLastRow;
-
-    if (this.scrollDirection === 'down') {
-      // Find where we are going to render to now and our target rendering row
-      let lastResult = this.__computeLastRow({lastVisible, totalRows});
-      lastRow = lastResult.lastRow;
-      targetLastRow = lastResult.targetLastRow;
-      if (typeof lastRow === 'undefined' || typeof targetLastRow === 'undefined') {
-        return;
-      }
-      let firstResult = this.__computeFirstRow({lastRow});
-      firstRow = firstResult.firstRow;
-      targetFirstRow = firstResult.targetFirstRow;
-    } else if (this.scrollDirection === 'up') {
-      let firstResult = this.__computeFirstRow({firstVisible});
-      firstRow = firstResult.targetFirstRow;
-      targetFirstRow = firstResult.targetFirstRow;
-      if (typeof firstRow === 'undefined' || typeof targetFirstRow === 'undefined') {
-        return;
-      }
-      let lastResult = this.__computeLastRow({firstRow, lastVisible});
-      lastRow = lastResult.lastRow;
-      targetLastRow = lastResult.targetLastRow;
-    }
+    let { firstRow, lastRow, targetFirstRow, targetLastRow } = dataSource.computeRowsToRender({
+      scrollDirection: this.scrollDirection,
+      firstVisible,
+      lastVisible,
+      firstRendered: this.state.firstRow,
+      lastRendered: this.state.lastRow,
+      maxNumToRender: props.maxNumToRender,
+      pageSize: props.pageSize,
+      numToRenderAhead: props.numToRenderAhead,
+    });
 
     this.setState({firstRow, lastRow});
 
@@ -377,9 +275,6 @@ export default class FixedHeightWindowedListView extends React.Component {
     if (lastRow !== targetLastRow || firstRow !== targetFirstRow) {
       this.__enqueueComputeRowsToRender(); // Make sure another increment is queued
     }
-
-    // let endTime = new Date();
-    // console.log('computeRowsToRenderSync: ' + (endTime - startTime));
   }
 
   __calculateSpacers() {

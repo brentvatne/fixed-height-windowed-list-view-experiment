@@ -85,9 +85,9 @@ class Main extends React.Component {
             getHeightForRowInSection={this._getHeightForRowInSection}
             incrementDelay={16}
             initialNumToRender={15}
-            maxNumToRender={60}
-            pageSize={Platform.OS === 'ios' ? 15 : 10}
-            numToRenderAhead={this.state.isTouching ? 0 : 35}
+            pageSize={Platform.OS === 'ios' ? 15 : 8}
+            maxNumToRender={70}
+            numToRenderAhead={this.state.isTouching ? 0 : 40}
           />
         </View>
 

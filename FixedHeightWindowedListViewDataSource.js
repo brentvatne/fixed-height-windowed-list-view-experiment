@@ -4,6 +4,7 @@
 'use strict';
 
 const _ = require('lodash');
+const clamp = require('./clamp');
 
 /* Helper class to perform calcuations required by FixedHeightWindowedListView.
  *
@@ -21,6 +22,124 @@ class FixedHeightListViewDataSource {
     this._getHeightForCell = params.getHeightForCell;
   }
 
+  __computeFirstRow(options) {
+    let {
+      lastRow,
+      firstVisible,
+      maxNumToRender,
+      numToRenderAhead,
+      firstRendered,
+      scrollDirection,
+      pageSize,
+    } = options;
+
+    let firstRow, targetFirstRow;
+
+    if (scrollDirection === 'down') {
+      targetFirstRow = firstRow = Math.max(
+        0,                           // Don't render past the top
+        lastRow - maxNumToRender + 1 // Don't exceed max to render
+      );
+    } else if (scrollDirection === 'up') {
+      targetFirstRow = Math.max(
+        0,                               // Don't render past the top
+        firstVisible - numToRenderAhead, // Primary goal -- this is what we need lastVisible for
+      );
+
+      firstRow = Math.max(
+        targetFirstRow,
+        firstRendered - pageSize,
+      );
+    }
+
+    return { firstRow, targetFirstRow };
+  }
+
+  __computeLastRow(options) {
+    let {
+      firstRow,
+      numRendered,
+      lastVisible,
+      totalRows,
+      numToRenderAhead,
+      lastRendered,
+      pageSize,
+      maxNumToRender,
+      scrollDirection
+    } = options;
+
+    let lastRow, targetLastRow;
+
+    if (scrollDirection === 'down') {
+      targetLastRow = clamp(
+        numRendered - 1,                // Don't reduce numRendered when scrolling back up high enough that the target is less than the number of rows currently rendered
+        lastVisible + numToRenderAhead, // Primary goal -- this is what we need lastVisible for
+        totalRows - 1                   // Don't render past the end
+      );
+
+      if (lastRendered === targetLastRow || targetLastRow === totalRows - 1) {
+        return { targetLastRow, lastRow: targetLastRow };
+      }
+
+      if (targetLastRow > lastRendered) {
+        if (targetLastRow - lastRendered > numToRenderAhead) {
+          lastRow = targetLastRow;
+        } else {
+          lastRow = clamp(lastRendered, targetLastRow, lastRow + pageSize);
+        }
+      } else if (targetLastRow < lastRendered) {
+        lastRow = clamp(lastVisible, lastRendered - pageSize, lastRendered);
+      }
+    } else if (scrollDirection === 'up') {
+      targetLastRow = lastRow = Math.max(
+        0,                        // Don't render past the top
+        lastVisible + (maxNumToRender - numToRenderAhead),
+        lastRendered - pageSize, // Don't exceed max to render
+      );
+    }
+
+    return { lastRow, targetLastRow };
+  }
+
+  computeRowsToRender(options) {
+    let {
+      scrollDirection,
+      firstVisible,
+      lastVisible,
+      firstRendered,
+      lastRendered,
+      pageSize,
+      maxNumToRender,
+      numToRenderAhead,
+    } = options;
+
+    let numRendered = lastRendered - firstRendered + 1;
+    let lastRow, targetLastRow, firstRow, targetFirstRow;
+
+    if (scrollDirection === 'down') {
+      let lastResult = this.__computeLastRow({numRendered, ...options});
+      lastRow = lastResult.lastRow;
+      targetLastRow = lastResult.targetLastRow;
+
+      // if (typeof lastRow === 'undefined' || typeof targetLastRow === 'undefined') return {};
+
+      let firstResult = this.__computeFirstRow({lastRow, numRendered, ...options});
+      firstRow = firstResult.firstRow;
+      targetFirstRow = firstResult.targetFirstRow;
+    } else if (scrollDirection === 'up') {
+      let firstResult = this.__computeFirstRow({numRendered, ...options});
+      firstRow = firstResult.firstRow;
+      targetFirstRow = firstResult.targetFirstRow;
+
+      // if (typeof firstRow === 'undefined' || typeof targetFirstRow === 'undefined') return {};
+
+      let lastResult = this.__computeLastRow({firstRow, numRendered, ...options});
+      lastRow = lastResult.lastRow;
+      targetLastRow = lastResult.targetLastRow;
+    }
+
+    return { firstRow, lastRow, targetFirstRow, targetLastRow };
+  }
 
   // Public: Used to set the height of the top spacer
   //
@@ -88,6 +207,7 @@ class FixedHeightListViewDataSource {
       lastVisible,
     };
   }
+
 
   // Public: Gets the number of rows (cells + section headers)
   //

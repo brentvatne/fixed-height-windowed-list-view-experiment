@@ -1,8 +1,6 @@
 'use strict';
 
-jest.dontMock('../FixedHeightWindowedListViewDataSource');
-jest.dontMock('../names');
-jest.dontMock('lodash');
+jest.autoMockOff();
 
 let FixedHeightWindowedListViewDataSource = require('FixedHeightWindowedListViewDataSource');
 let _ = require('lodash');
@@ -61,5 +59,9 @@ describe('DataSource', () => {
     let lastRowIdx = dataSource.getRowCount() - 1;
 
     expect(subject.getHeightAfterRow(lastRowIdx)).toBe(0);
+  });
+
+  it('shifts the render-ahead depending on scroll direction', () => {
+
   });
 });
