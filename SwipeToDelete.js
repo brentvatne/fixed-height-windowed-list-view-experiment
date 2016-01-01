@@ -30,7 +30,7 @@ export default class SwipeToDelete extends React.Component {
     ];
 
     return (
-      <SwipeActions actions={actions} events={this.props.events}>
+      <SwipeActions actions={actions} events={this.props.events} style={this.props.style}>
         {React.Children.only(this.props.children)}
       </SwipeActions>
     );

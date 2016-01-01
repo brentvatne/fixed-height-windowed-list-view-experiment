@@ -99,7 +99,8 @@ export default class FixedHeightWindowedListView extends React.Component {
 
     return (
       <ScrollView
-        scrollEventThrottle={17}
+        stickyHeaderIndices={this.props.dataSource.getHeaderIndices(firstRow, lastRow)}
+        scrollEventThrottle={50}
         removeClippedSubviews={this.props.numToRenderAhead === 0 ? false : true}
         automaticallyAdjustContentInsets={false}
         {...this.props}
@@ -194,7 +195,6 @@ export default class FixedHeightWindowedListView extends React.Component {
       rows.push(
         <CellRenderer
           key={key}
-          rowIndex={idx}
           shouldUpdate={data !== this.__rowCache[key]}
           render={this.__renderRow.bind(this, data, 0, idx, key)}
         />

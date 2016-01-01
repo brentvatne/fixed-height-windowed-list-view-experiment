@@ -60,7 +60,11 @@ class FixedHeightListViewDataSource {
       targetLastRow = lastResult.targetLastRow;
     }
 
-    return { firstRow, lastRow, targetFirstRow, targetLastRow };
+    // console.log({ scrollDirection, firstRow, lastRow, firstVisible, lastVisible });
+    console.log('firstRow: ' + firstRow);
+    console.log('lastRow: ' + lastRow);
+    console.log('-----------------------------------');
+    return { firstRow, lastRow, firstVisible, lastVisible, targetFirstRow, targetLastRow };
   }
 
   __computeFirstRow(options) {
@@ -80,10 +84,10 @@ class FixedHeightListViewDataSource {
     let firstRow, targetFirstRow;
 
     if (scrollDirection === 'down') {
-      targetFirstRow = firstRow = Math.max(
-        0,
-        firstVisible - numToRenderBehind, // Never hide the first visible row
-        lastRow - maxNumToRender,         // Don't exceed max to render
+      // firstVisible - numToRenderBehind, // Never hide the first visible row
+      targetFirstRow = firstRow = Math.min(
+        firstRendered,
+        Math.max(0, lastRow - maxNumToRender),         // Don't exceed max to render
       );
     } else if (scrollDirection === 'up') {
       targetFirstRow = Math.max(
@@ -315,11 +319,13 @@ class FixedHeightListViewDataSource {
      */
     let lastRow = -1;
     let cumulativeHeight = 0;
-    this._lookup = _.reduce(Object.keys(dataBlob), (result, sectionId) => {
+    this._headerIndices = [];
+    this._lookup  = _.reduce(Object.keys(dataBlob), (result, sectionId) => {
       let sectionHeaderHeight = this._getHeightForSectionHeader(sectionId);
       let cellHeight = this._getHeightForCell(sectionId);
       let count = dataBlob[sectionId].length;
       let sectionHeight = sectionHeaderHeight + cellHeight * count;
+      this._headerIndices.push(lastRow + 1);
 
       result[sectionId] = {
         count: count + 1,                          // Factor in section header
@@ -338,6 +344,14 @@ class FixedHeightListViewDataSource {
     }, {});
 
     return this;
+  }
+
+  getHeaderIndices(firstRow, lastRow) {
+    return _.chain(this._headerIndices)
+      .filter((i) => { return i >= firstRow && i <= lastRow })
+      .map((i) => { return i += 1 })
+      .map((i) => { return i -= firstRow })
+      .value();
   }
 
   getHeightOfSection(sectionId) {

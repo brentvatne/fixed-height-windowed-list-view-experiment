@@ -83,12 +83,12 @@ class Main extends React.Component {
             renderCell={this._renderCell.bind(this)}
             renderSectionHeader={this._renderSectionHeader.bind(this)}
             getHeightForRowInSection={this._getHeightForRowInSection}
-            incrementDelay={16}
+            incrementDelay={17}
             initialNumToRender={8}
-            pageSize={Platform.OS === 'ios' ? 15 : 8}
+            pageSize={Platform.OS === 'ios' ? 8 : 8}
             maxNumToRender={70}
             numToRenderAhead={this.state.isTouching ? 0 : 40}
-            numToRenderBehind={4}
+            numToRenderBehind={10}
           />
         </View>
 
@@ -195,14 +195,62 @@ class AlphabetPicker extends React.Component {
 class ContactCell extends React.Component {
   constructor(props) {
     super(props);
+
+    this.state = {
+      placeholder: true,
+    };
+  }
+
+  componentDidMount() {
+    this._mounted = true;
+    this.scheduleRemovePlaceholder();
+  }
+
+  scheduleRemovePlaceholder() {
+    this.placeholderCallback = requestIdleCallback((deadline) => {
+      if (!this._mounted) {
+        return;
+      }
+
+      if ((!deadline.timeRemaining || deadline.timeRemaining() >= 2)) {
+        this.setState({placeholder: false});
+      } else {
+        this.scheduleRemovePlaceholder();
+      }
+    });
+  }
+
+  componentWillUnmount() {
+    this._mounted = false;
+    cancelIdleCallback(this.placeholderCallback);
   }
 
   render() {
+    if (this.state.placeholder) {
+      return this.renderPlaceholder();
+    } else {
+      return this.renderFull();
+    }
+  }
+
+  renderPlaceholder() {
+    return (
+      <View style={[styles.cell, {paddingLeft: 65}]}>
+        <Text style={styles.name}>
+          {this.props.data}
+        </Text>
+      </View>
+    )
+  }
+
+  renderFull() {
     return (
       <View style={styles.cell}>
-        <View style={[styles.placeholderCircle, {backgroundColor: randomColor()}]} />
+        <View style={[styles.placeholderCircle, {backgroundColor: '#eee'}]}>
+          <Image source={{uri: 'https://avatars1.githubusercontent.com/u/90494?v=3&s=100'}} style={{width: 50, height: 50, borderRadius: 25}} />
+        </View>
         <Text style={styles.name}>
-          {this.props.data} {this.props.data.split('').reverse().join('')}
+          {this.props.data}
         </Text>
       </View>
     );
@@ -226,6 +274,10 @@ let styles = StyleSheet.create({
     right: 0,
     justifyContent: 'center',
     alignItems: 'center',
+  },
+  placeholderBar: {
+    backgroundColor: '#eee',
+    height: 20,
   },
   placeholderCircle: {
     width: 50,
