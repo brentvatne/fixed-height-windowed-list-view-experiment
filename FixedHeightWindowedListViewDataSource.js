@@ -24,6 +24,54 @@ class FixedHeightListViewDataSource {
     this._getHeightForCell = params.getHeightForCell;
   }
 
+  computeSpacers(firstRow, lastRow, bufferFirstRow, bufferLastRow) {
+    let spacerTopHeight = this.getHeightBeforeRow(firstRow);
+    let spacerBottomHeight = this.getHeightAfterRow(lastRow);
+    let spacerMidHeight;
+    let spacerSectionHeaderHeight;
+
+    if (bufferFirstRow !== null && bufferFirstRow < firstRow) {
+      spacerMidHeight = this.getHeightBetweenRows(bufferLastRow, firstRow);
+      let bufferHeight = this.getHeightBetweenRows(bufferFirstRow - 1, bufferLastRow + 1);
+      spacerTopHeight -= (spacerMidHeight + bufferHeight);
+    } else if (bufferFirstRow !== null && bufferFirstRow > lastRow) {
+      spacerMidHeight = this.getHeightBetweenRows(lastRow, bufferFirstRow);
+      spacerBottomHeight -= spacerMidHeight;
+    }
+
+    // NEXT STEP:
+    // firstRow might not be the current section! firstVisible definitely is, though
+    // maybe better to do header for that?
+
+    // Is the firstRow the first one of its section?
+    // Yes -- do nothing
+    // No? -- spacerSectionHeaderHeight = (firstRow - 1 - range[0]) * rowHeight
+    //
+    var firstRenderedSection = this.getSectionForRowId(firstRow);
+    // vv use this same approach to determine whether to render header cell?
+    if (firstRow === firstRenderedSection.range[0]) {
+      spacerSectionHeaderHeight = 0;
+    } else {
+      spacerSectionHeaderHeight = this.getHeightBetweenRows(
+        firstRenderedSection.range[0],
+        firstRow
+      );
+      if (spacerMidHeight > 0) {
+        spacerMidHeight =- spacerSectionHeaderHeight;
+      } else {
+        spacerTopHeight =- spacerSectionHeaderHeight;
+      }
+    }
+
+    return {
+      spacerTopHeight,
+      spacerSectionHeaderHeight,
+      sectionHeaderRow: firstRenderedSection.range[0],
+      spacerBottomHeight,
+      spacerMidHeight,
+    }
+  }
+
   computeRowsToRender(options) {
     let {
       scrollDirection,
@@ -60,10 +108,7 @@ class FixedHeightListViewDataSource {
       targetLastRow = lastResult.targetLastRow;
     }
 
-    // console.log({ scrollDirection, firstRow, lastRow, firstVisible, lastVisible });
-    console.log('firstRow: ' + firstRow);
-    console.log('lastRow: ' + lastRow);
-    console.log('-----------------------------------');
+    console.log({ firstRow, lastRow, firstVisible, lastVisible, targetFirstRow, targetLastRow });
     return { firstRow, lastRow, firstVisible, lastVisible, targetFirstRow, targetLastRow };
   }
 
@@ -77,6 +122,7 @@ class FixedHeightListViewDataSource {
       numToRenderAhead,
       numRendered,
       firstRendered,
+      lastRendered,
       scrollDirection,
       pageSize,
     } = options;
@@ -84,10 +130,9 @@ class FixedHeightListViewDataSource {
     let firstRow, targetFirstRow;
 
     if (scrollDirection === 'down') {
-      // firstVisible - numToRenderBehind, // Never hide the first visible row
       targetFirstRow = firstRow = Math.min(
-        firstRendered,
-        Math.max(0, lastRow - maxNumToRender),         // Don't exceed max to render
+        firstVisible,
+        Math.max(0, lastRow - maxNumToRender), // Don't exceed max to render
       );
     } else if (scrollDirection === 'up') {
       targetFirstRow = Math.max(
@@ -279,10 +324,15 @@ class FixedHeightListViewDataSource {
     return this._lookup[sectionId].sectionHeaderHeight;
   }
 
-  getCellHeight(i) {
-    let parentSection = _.find(this._lookup, (section) => {
-      return i >= section.range[0] || i <= section.range[1];
+  getSectionForRowId(rowId) {
+    return _.find(this._lookup, (section) => {
+      return rowId >= section.range[0] && rowId <= section.range[1];
     });
+
+  }
+
+  getCellHeight(i) {
+    let parentSection = this.getSectionForRowId(i);
 
     if (parentSection) {
       return parentSection.cellHeight;
@@ -346,12 +396,30 @@ class FixedHeightListViewDataSource {
     return this;
   }
 
-  getHeaderIndices(firstRow, lastRow) {
-    return _.chain(this._headerIndices)
+  getHeaderIndices(sectionHeaderRow, firstRow, lastRow) {
+    let hasExtraSectionHeader = false;
+
+    if ((sectionHeaderRow === 0 || sectionHeaderRow > 0) && firstRow > 0) {
+      hasExtraSectionHeader = true;
+    }
+
+    let indices = _.chain(this._headerIndices)
       .filter((i) => { return i >= firstRow && i <= lastRow })
-      .map((i) => { return i += 1 })
+      .map((i) => { return i += hasExtraSectionHeader ? 3 : 1 })
       .map((i) => { return i -= firstRow })
       .value();
+
+    if (hasExtraSectionHeader) {
+      if (sectionHeaderRow === 0) {
+        indices.unshift(sectionHeaderRow + 1);
+      } else {
+        indices.unshift(sectionHeaderRow - 1);
+      }
+    }
+
+    console.log(indices);
+
+    return indices;
   }
 
   getHeightOfSection(sectionId) {

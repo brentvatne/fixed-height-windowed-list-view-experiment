@@ -66,10 +66,8 @@ class Main extends React.Component {
 
   render() {
     this._alphabetInstance = this._alphabetInstance || (
-      <View style={styles.alphabetSidebar} shouldRasterizeIOS>
-        <AlphabetPicker
-          onTouchStart={() => { this.setState({isTouching: true}) }}
-          onTouchEnd={() => { requestAnimationFrame(() => { this.setState({isTouching: false}) })}}
+      <View style={styles.sectionPickerSidebar}>
+        <SectionPicker
           onTouchLetter={this._onTouchLetter.bind(this)} />
       </View>
     );
@@ -86,8 +84,8 @@ class Main extends React.Component {
             incrementDelay={17}
             initialNumToRender={8}
             pageSize={Platform.OS === 'ios' ? 8 : 8}
-            maxNumToRender={70}
-            numToRenderAhead={this.state.isTouching ? 0 : 40}
+            maxNumToRender={40}
+            numToRenderAhead={this.state.isTouching ? 0 : 30}
             numToRenderBehind={10}
           />
         </View>
@@ -114,82 +112,6 @@ class Main extends React.Component {
       <ContactCell data={data} />
     );
   }
-}
-
-class LetterPicker extends React.Component {
-
-  render() {
-    return (
-      <Text style={{fontSize: 11, fontWeight: 'bold'}}>
-        {this.props.letter}
-      </Text>
-    );
-  }
-}
-
-const Alphabet = "ABCDEFGHIJKLMNOPQRSTUVWXYZ".split('');
-class AlphabetPicker extends React.Component {
-
-  componentWillMount() {
-    this._panResponder = PanResponder.create({
-      onStartShouldSetPanResponder: () => true,
-      onMoveShouldSetPanResponder: () => true,
-      onPanResponderGrant: (e, gestureState) => {
-        this.props.onTouchStart && this.props.onTouchStart();
-
-        this.tapTimeout = setTimeout(() => {
-          this._onTouchLetter(this._findTouchedLetter(gestureState.y0));
-        }, 100);
-      },
-      onPanResponderMove: (evt, gestureState) => {
-        clearTimeout(this.tapTimeout);
-        this._onTouchLetter(this._findTouchedLetter(gestureState.moveY));
-      },
-      onPanResponderTerminate: this._onPanResponderEnd.bind(this),
-      onPanResponderRelease: this._onPanResponderEnd.bind(this),
-    });
-  }
-
-  _onTouchLetter(letter) {
-    letter && this.props.onTouchLetter && this.props.onTouchLetter(letter);
-  }
-
-  _onPanResponderEnd() {
-    requestAnimationFrame(() => {
-      this.props.onTouchEnd && this.props.onTouchEnd();
-    });
-  }
-
-  _findTouchedLetter(y) {
-    let top = y - (this.absContainerTop || 0);
-
-    if (top >= 1 && top <= this.containerHeight) {
-      return Alphabet[Math.round((top/this.containerHeight) * 26)]
-    }
-  }
-
-  _onLayout({nativeEvent: {layout: {y: y, height: h}}}) {
-    this.absContainerTop = y;
-    this.containerHeight = h;
-  }
-
-  render() {
-    this._letters = this._letters || (
-      Alphabet.map((letter) => <LetterPicker letter={letter} key={letter} />)
-    );
-
-    return (
-      <View
-        {...this._panResponder.panHandlers}
-        onLayout={this._onLayout.bind(this)}
-        style={{paddingHorizontal: 5, backgroundColor: '#fff', borderRadius: 1, justifyContent: 'center'}}>
-        <View>
-          {this._letters}
-        </View>
-      </View>
-    );
-  }
-
 }
 
 class ContactCell extends React.Component {
@@ -235,7 +157,10 @@ class ContactCell extends React.Component {
 
   renderPlaceholder() {
     return (
-      <View style={[styles.cell, {paddingLeft: 65}]}>
+      <View style={styles.cell}>
+        { Platform.OS === 'ios' ?
+            <Image source={{uri: 'https://avatars1.githubusercontent.com/u/90494?v=3&s=100'}} style={{width: 50, height: 50, borderRadius: 25, marginLeft: 5, marginRight: 10}} /> :
+            <View style={{width: 65}} /> }
         <Text style={styles.name}>
           {this.props.data}
         </Text>
@@ -246,9 +171,7 @@ class ContactCell extends React.Component {
   renderFull() {
     return (
       <View style={styles.cell}>
-        <View style={[styles.placeholderCircle, {backgroundColor: '#eee'}]}>
-          <Image source={{uri: 'https://avatars1.githubusercontent.com/u/90494?v=3&s=100'}} style={{width: 50, height: 50, borderRadius: 25}} />
-        </View>
+        <Image source={{uri: 'https://avatars1.githubusercontent.com/u/90494?v=3&s=100'}} style={{width: 50, height: 50, borderRadius: 25, marginLeft: 5, marginRight: 10}} />
         <Text style={styles.name}>
           {this.props.data}
         </Text>
@@ -266,7 +189,7 @@ let styles = StyleSheet.create({
   },
   swipeContainer: {
   },
-  alphabetSidebar: {
+  sectionPickerSidebar: {
     position: 'absolute',
     backgroundColor: 'transparent',
     top: 0,

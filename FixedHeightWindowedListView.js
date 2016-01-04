@@ -77,7 +77,11 @@ export default class FixedHeightWindowedListView extends React.Component {
 
     let { bufferFirstRow, bufferLastRow } = this.state;
     let { firstRow, lastRow } = this.state;
-    let { spacerTopHeight, spacerBottomHeight, spacerMidHeight } = this.__calculateSpacers();
+
+    let { spacerTopHeight, spacerSectionHeaderHeight, sectionHeaderRow, spacerBottomHeight, spacerMidHeight } =
+      this.props.dataSource.computeSpacers(firstRow, lastRow, bufferFirstRow, bufferLastRow);
+
+    console.log({ sectionHeaderRow, spacerSectionHeaderHeight });
 
     let rows = [];
     rows.push(<View key="sp-top" style={{height: spacerTopHeight}} />);
@@ -87,7 +91,7 @@ export default class FixedHeightWindowedListView extends React.Component {
       rows.push(<View key="sp-mid" style={{height: spacerMidHeight}} />);
     }
 
-    this.__renderCells(rows, firstRow, lastRow);
+    this.__renderCells(rows, firstRow, lastRow, spacerSectionHeaderHeight, sectionHeaderRow);
 
     if (bufferFirstRow > lastRow && bufferFirstRow !== null) {
       rows.push(<View key="sp-mid" style={{height: spacerMidHeight}} />);
@@ -99,7 +103,7 @@ export default class FixedHeightWindowedListView extends React.Component {
 
     return (
       <ScrollView
-        stickyHeaderIndices={this.props.dataSource.getHeaderIndices(firstRow, lastRow)}
+        stickyHeaderIndices={this.props.dataSource.getHeaderIndices(sectionHeaderRow, firstRow, lastRow)}
         scrollEventThrottle={50}
         removeClippedSubviews={this.props.numToRenderAhead === 0 ? false : true}
         automaticallyAdjustContentInsets={false}
@@ -177,31 +181,32 @@ export default class FixedHeightWindowedListView extends React.Component {
       this.scrollRef.scrollWithoutAnimationTo(destY, destX);
   }
 
-  __maybeWait(callback) {
-    if (Platform.OS === 'android') {
-      setTimeout(() => {
-        callback();
-      }, 17 * 2);
-    } else {
-      callback();
+  __renderCells(rows, firstRow, lastRow, spacerSectionHeaderHeight, sectionHeaderRow) {
+    if (spacerSectionHeaderHeight > 0) {
+      console.log('RENDERING!');
+      console.log({ spacerSectionHeaderHeight, sectionHeaderRow });
+      console.log('&&&&&&&&&&&&!');
+      this.__renderCell(rows, sectionHeaderRow);
+      rows.push(<View key="sp-section-header" style={{height: spacerSectionHeaderHeight}} />);
+    }
+
+    for (var idx = firstRow; idx <= lastRow; idx++) {
+      this.__renderCell(rows, idx);
     }
   }
 
-  __renderCells(rows, firstRow, lastRow) {
-    for (var idx = firstRow; idx <= lastRow; idx++) {
-      let data = this.props.dataSource.getRowData(idx);
-      let key = idx.toString();
+  __renderCell(rows, idx) {
+    let data = this.props.dataSource.getRowData(idx);
+    let key = idx.toString();
+    this.__rowCache[key] = data;
 
-      rows.push(
-        <CellRenderer
-          key={key}
-          shouldUpdate={data !== this.__rowCache[key]}
-          render={this.__renderRow.bind(this, data, 0, idx, key)}
-        />
-      );
-
-      this.__rowCache[key] = data;
-    }
+    rows.push(
+      <CellRenderer
+        key={key}
+        shouldUpdate={data !== this.__rowCache[key]}
+        render={this.__renderRow.bind(this, data, 0, idx, key)}
+      />
+    );
   }
 
   __renderRow(data, unused, idx, key) {
@@ -242,6 +247,16 @@ export default class FixedHeightWindowedListView extends React.Component {
         this.willComputeRowsToRender = false;
         this.__computeRowsToRenderSync(this.props);
       }, this.props.incrementDelay);
+    }
+  }
+
+  __maybeWait(callback) {
+    if (Platform.OS === 'android') {
+      setTimeout(() => {
+        callback();
+      }, 17 * 2);
+    } else {
+      callback();
     }
   }
 
@@ -290,39 +305,6 @@ export default class FixedHeightWindowedListView extends React.Component {
     // targetFirstRow
     if (lastRow !== targetLastRow || firstRow !== targetFirstRow) {
       this.__enqueueComputeRowsToRender();
-    }
-  }
-
-  /**
-   * TODO: pull this out into data source, add tests
-   */
-  __calculateSpacers() {
-    let { bufferFirstRow, bufferLastRow } = this.state;
-    let { firstRow, lastRow } = this.state;
-
-    let spacerTopHeight = this.props.dataSource.getHeightBeforeRow(firstRow);
-    let spacerBottomHeight = this.props.dataSource.getHeightAfterRow(lastRow);
-    let spacerMidHeight;
-
-    if (bufferFirstRow !== null && bufferFirstRow < firstRow) {
-      spacerMidHeight = this.props.dataSource.
-        getHeightBetweenRows(bufferLastRow, firstRow);
-
-      let bufferHeight = this.props.dataSource.
-        getHeightBetweenRows(bufferFirstRow - 1, bufferLastRow + 1);
-
-      spacerTopHeight -= (spacerMidHeight + bufferHeight);
-    } else if (bufferFirstRow !== null && bufferFirstRow > lastRow) {
-      spacerMidHeight = this.props.dataSource.
-        getHeightBetweenRows(lastRow, bufferFirstRow);
-
-      spacerBottomHeight -= spacerMidHeight;
-    }
-
-    return {
-      spacerTopHeight,
-      spacerBottomHeight,
-      spacerMidHeight,
     }
   }
 }
