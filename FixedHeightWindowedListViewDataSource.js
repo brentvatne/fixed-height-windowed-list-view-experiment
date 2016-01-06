@@ -95,6 +95,8 @@ class FixedHeightListViewDataSource {
         targetFirstRow,
         firstRendered - pageSize,
       );
+    } else {
+      targetFirstRow = firstRow = firstRendered;
     }
 
     return { firstRow, targetFirstRow };
@@ -135,6 +137,8 @@ class FixedHeightListViewDataSource {
       if (numToBeRendered > maxNumToRender) {
         targetLastRow = lastRow = targetLastRow - (numToBeRendered - maxNumToRender);
       }
+    } else {
+      targetLastRow = lastRow = lastRendered;
     }
 
     return { lastRow, targetLastRow };
@@ -200,7 +204,7 @@ class FixedHeightListViewDataSource {
   }
 
   /**
-   * Public: Used by computeRowsToRenderSync to determine what the target
+   * Public: Used by computeRowsToRender to determine what the target
    * last row is (lastVisible + numToRenderAhead)
    */
   computeVisibleRows(scrollY, viewportHeight) {
@@ -240,8 +244,10 @@ class FixedHeightListViewDataSource {
    * rendered at the given scrollY.
    */
   getRowAtHeight(scrollY) {
-    if (scrollY < 0 || scrollY > this.getTotalHeight()) {
+    if (scrollY < 0) {
       return 0;
+    } else if (scrollY > this.getTotalHeight()) {
+      return scrollY = this.getTotalHeight();
     }
 
     let parentSection = _.find(this._lookup, (value) => {

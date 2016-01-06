@@ -84,7 +84,12 @@ export default class FixedHeightWindowedListView extends React.Component {
 
     if (bufferFirstRow < firstRow && bufferFirstRow !== null) {
       this.__renderCells(rows, bufferFirstRow, bufferLastRow);
-      rows.push(<View key="sp-mid" style={{height: spacerMidHeight}} />);
+
+      // It turns out that this isn't needed, we don't really care about what
+      // is rendered after in this case because it will be immediately replaced
+      // with the non-buffered window. Leaving this in can sometimes lead to
+      // white screen flashes on Android.
+      // rows.push(<View key="sp-mid" style={{height: spacerMidHeight}} />);
     }
 
     this.__renderCells(rows, firstRow, lastRow);
@@ -99,7 +104,7 @@ export default class FixedHeightWindowedListView extends React.Component {
 
     return (
       <ScrollView
-        scrollEventThrottle={17}
+        scrollEventThrottle={50}
         removeClippedSubviews={this.props.numToRenderAhead === 0 ? false : true}
         automaticallyAdjustContentInsets={false}
         {...this.props}
@@ -123,15 +128,11 @@ export default class FixedHeightWindowedListView extends React.Component {
       let totalRows = this.props.dataSource.getRowCount();
       let lastRow = totalRows - 1;
 
-      if (row === this.state.firstRow) {
-        return;
-      }
-
       // We don't want to run computeRowsToRenderSync while scrolling
       this.__clearEnqueuedComputation();
       this.isScrollingToSection = true;
 
-      let windowFirstRow = Math.max(0, row - numToRenderBehind);
+      let windowFirstRow = row;
       let windowLastRow = Math.min(lastRow, row + initialNumToRender);
 
       // Set up the buffer
@@ -139,33 +140,39 @@ export default class FixedHeightWindowedListView extends React.Component {
         bufferFirstRow: windowFirstRow,
         bufferLastRow: windowLastRow,
       }, () => {
-        // Now that the buffer is rendered, scroll to it
-        // TODO: if we drop frames on rendering the buffer, we will get a white flash :(
-        // so we probably want to check for an onLayout event or timeout after ~80ms
-        this.scrollRef.scrollWithoutAnimationTo(startY);
-
-        // A delay is necessary on Android, otherwise we get screen flashes
-        // when the buffered section is above the main window. Might be a
-        // ScrollView bug -- works fine on iOS without it, thus "maybe"
         this.__maybeWait(() => {
-          this.isScrollingToSection = false;
-
           this.setState({
             firstRow: windowFirstRow,
             lastRow: windowLastRow,
             bufferFirstRow: null,
             bufferLastRow: null,
+          }, () => {
+            if (this.nextSectionToScrollTo !== null) {
+              requestAnimationFrame(() => {
+                let nextSectionID = this.nextSectionToScrollTo;
+                this.nextSectionToScrollTo = null;
+                this.isScrollingToSection = false;
+                this.scrollToSectionBuffered(nextSectionID);
+              });
+            } else {
+              // On Android it seems like it is possible for the scroll
+              // position to be reported incorrectly sometimes, so we
+              // delay setting isScrollingToSection to false here to
+              // give it more time for the scroll position to catch up (?)
+              // which is important for calculating the firstVisible and
+              // lastVisible, ultimately determining rows to render.
+              // Leaving this out sometimes causes a blank screen briefly,
+              // with the firstRow exceeding lastRow.
+              setTimeout(() => {
+                this.isScrollingToSection = false;
+              }, 100);
+            }
           });
-
-          if (this.nextSectionToScrollTo !== null) {
-            requestAnimationFrame(() => {
-              let nextSectionID = this.nextSectionToScrollTo;
-              this.nextSectionToScrollTo = null;
-              this.scrollToSectionBuffered(nextSectionID);
-            });
-          }
         });
       });
+
+      // Scroll to the buffer area as soon as setState is complete
+      this.scrollRef.scrollWithoutAnimationTo(startY);
     } else {
       this.nextSectionToScrollTo = sectionId; // Only keep the most recent value
     }
@@ -176,11 +183,14 @@ export default class FixedHeightWindowedListView extends React.Component {
       this.scrollRef.scrollWithoutAnimationTo(destY, destX);
   }
 
+  // Android requires us to wait a frame between setting the buffer, scrolling
+  // to it, and then setting the firstRow and lastRow to the buffer. If not,
+  // white flash. iOS doesnt't care.
   __maybeWait(callback) {
     if (Platform.OS === 'android') {
-      setTimeout(() => {
+      requestAnimationFrame(() => {
         callback();
-      }, 17 * 2);
+      });
     } else {
       callback();
     }
@@ -250,6 +260,10 @@ export default class FixedHeightWindowedListView extends React.Component {
    * the viewport.
    */
   __computeRowsToRenderSync(props) {
+    if (this.props.bufferFirstRow === 0 || this.props.bufferFirstRow > 0 || this.isScrollingToSection) {
+      return;
+    }
+
     let { dataSource } = this.props;
     let totalRows = dataSource.getRowCount();
 
@@ -284,6 +298,7 @@ export default class FixedHeightWindowedListView extends React.Component {
       totalRows,
     });
 
+
     this.setState({firstRow, lastRow});
 
     // Keep enqueuing updates until we reach the targetLastRow or
@@ -291,6 +306,7 @@ export default class FixedHeightWindowedListView extends React.Component {
     if (lastRow !== targetLastRow || firstRow !== targetFirstRow) {
       this.__enqueueComputeRowsToRender();
     }
+
   }
 
   /**

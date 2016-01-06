@@ -66,11 +66,8 @@ class Main extends React.Component {
 
   render() {
     this._alphabetInstance = this._alphabetInstance || (
-      <View style={styles.alphabetSidebar} shouldRasterizeIOS>
-        <AlphabetPicker
-          onTouchStart={() => { this.setState({isTouching: true}) }}
-          onTouchEnd={() => { requestAnimationFrame(() => { this.setState({isTouching: false}) })}}
-          onTouchLetter={this._onTouchLetter.bind(this)} />
+      <View style={styles.alphabetSidebar}>
+        <AlphabetPicker onTouchLetter={this._onTouchLetter.bind(this)} />
       </View>
     );
 
@@ -87,7 +84,7 @@ class Main extends React.Component {
             initialNumToRender={8}
             pageSize={Platform.OS === 'ios' ? 15 : 8}
             maxNumToRender={70}
-            numToRenderAhead={this.state.isTouching ? 0 : 40}
+            numToRenderAhead={40}
             numToRenderBehind={4}
           />
         </View>
