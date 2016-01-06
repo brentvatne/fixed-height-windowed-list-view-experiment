@@ -95,8 +95,6 @@ class FixedHeightListViewDataSource {
         targetFirstRow,
         firstRendered - pageSize,
       );
-    } else {
-      targetFirstRow = firstRow = firstRendered;
     }
 
     return { firstRow, targetFirstRow };
@@ -137,8 +135,6 @@ class FixedHeightListViewDataSource {
       if (numToBeRendered > maxNumToRender) {
         targetLastRow = lastRow = targetLastRow - (numToBeRendered - maxNumToRender);
       }
-    } else {
-      targetLastRow = lastRow = lastRendered;
     }
 
     return { lastRow, targetLastRow };
