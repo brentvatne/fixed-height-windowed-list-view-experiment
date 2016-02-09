@@ -31,8 +31,8 @@ import _ from 'lodash';
  */
 export default class FixedHeightWindowedListView extends React.Component {
 
-  constructor(props) {
-    super(props);
+  constructor(props, context) {
+    super(props, context);
 
     invariant(
       this.props.numToRenderAhead < this.props.maxNumToRender,
@@ -58,14 +58,14 @@ export default class FixedHeightWindowedListView extends React.Component {
 
     this.state = {
       firstRow: 0,
-      lastRow: Math.min(dataSource.getRowCount(), initialNumToRender) - 1,
+      lastRow: Math.min(dataSource.getRowCount() - 1, initialNumToRender),
       bufferFirstRow: null,
       bufferLastRow: null,
     };
   }
 
-  componentWillReceiveProps(newProps) {
-    this.__computeRowsToRenderSync(newProps);
+  componentWillReceiveProps(nextProps) {
+    this.__computeRowsToRenderSync(nextProps, true);
   }
 
   componentWillUnmount() {
@@ -83,6 +83,7 @@ export default class FixedHeightWindowedListView extends React.Component {
     rows.push(<View key="sp-top" style={{height: spacerTopHeight}} />);
 
     if (bufferFirstRow < firstRow && bufferFirstRow !== null) {
+      bufferLastRow = clamp(0, bufferLastRow, firstRow - 1);
       this.__renderCells(rows, bufferFirstRow, bufferLastRow);
 
       // It turns out that this isn't needed, we don't really care about what
@@ -122,7 +123,7 @@ export default class FixedHeightWindowedListView extends React.Component {
   }
 
   scrollToSectionBuffered(sectionId) {
-    if (!this.isScrollingToSection) {
+    if (!this.isScrollingToSection && this.props.dataSource.hasSection(sectionId)) {
       let { row, startY } = this.props.dataSource.getFirstRowOfSection(sectionId);
       let { initialNumToRender, numToRenderBehind } = this.props;
       let totalRows = this.props.dataSource.getRowCount();
@@ -134,6 +135,11 @@ export default class FixedHeightWindowedListView extends React.Component {
 
       let windowFirstRow = row;
       let windowLastRow = Math.min(lastRow, row + initialNumToRender);
+
+      // If we are at the bottom of the list, subtract any left over rows from the firstRow
+      if (windowLastRow - lastRow === 0) {
+        windowFirstRow = Math.max(0, windowLastRow - initialNumToRender);
+      }
 
       // Set up the buffer
       this.setState({
@@ -165,6 +171,8 @@ export default class FixedHeightWindowedListView extends React.Component {
               // with the firstRow exceeding lastRow.
               setTimeout(() => {
                 this.isScrollingToSection = false;
+                this.__clearEnqueuedComputation();
+                this.__enqueueComputeRowsToRender();
               }, 100);
             }
           });
@@ -199,14 +207,26 @@ export default class FixedHeightWindowedListView extends React.Component {
   __renderCells(rows, firstRow, lastRow) {
     for (var idx = firstRow; idx <= lastRow; idx++) {
       let data = this.props.dataSource.getRowData(idx);
-      let key = idx.toString();
+      let id = idx.toString();
+      let parentSectionId = '';
+
+      // TODO: generalize this!
+      if (data.get && data.get('guid_token')) {
+        id = data.get('guid_token');
+      }
+
+      let key = id;
+
+      if (!(isObject(data) && data.sectionId)) {
+        parentSectionId = this.props.dataSource.getSectionId(idx)
+        key = `${key}-${id}`;
+      }
 
       rows.push(
         <CellRenderer
           key={key}
-          rowIndex={idx}
           shouldUpdate={data !== this.__rowCache[key]}
-          render={this.__renderRow.bind(this, data, 0, idx, key)}
+          render={this.__renderRow.bind(this, data, parentSectionId, idx, key)}
         />
       );
 
@@ -214,11 +234,11 @@ export default class FixedHeightWindowedListView extends React.Component {
     }
   }
 
-  __renderRow(data, unused, idx, key) {
-    if (_.isObject(data) && data.sectionId) {
-      return this.props.renderSectionHeader(data, unused, idx, key);
+  __renderRow(data, parentSectionId, idx, key) {
+    if (isObject(data) && data.sectionId) {
+      return this.props.renderSectionHeader(data, null, idx, key);
     } else {
-      return this.props.renderCell(data, unused, idx, key);
+      return this.props.renderCell(data, parentSectionId, idx, key);
     }
   }
 
@@ -259,8 +279,11 @@ export default class FixedHeightWindowedListView extends React.Component {
    * The result of this is an up-to-date state of firstRow and lastRow, given
    * the viewport.
    */
-  __computeRowsToRenderSync(props) {
+  __computeRowsToRenderSync(props, forceUpdate = false) {
     if (this.props.bufferFirstRow === 0 || this.props.bufferFirstRow > 0 || this.isScrollingToSection) {
+      requestAnimationFrame(() => {
+        this.__computeRowsToRenderSync(this.props);
+      });
       return;
     }
 
@@ -281,12 +304,14 @@ export default class FixedHeightWindowedListView extends React.Component {
       this.height,
     );
 
-    if (lastVisible >= (totalRows - 1)) {
+    if ((lastVisible >= totalRows - 1) && !forceUpdate) {
       return;
     }
 
+    let scrollDirection = this.props.isTouchingSectionPicker ? 'down' : this.scrollDirection;
+
     let { firstRow, lastRow, targetFirstRow, targetLastRow } = dataSource.computeRowsToRender({
-      scrollDirection: this.scrollDirection,
+      scrollDirection,
       firstVisible,
       lastVisible,
       firstRendered: this.state.firstRow,
@@ -298,7 +323,6 @@ export default class FixedHeightWindowedListView extends React.Component {
       totalRows,
     });
 
-
     this.setState({firstRow, lastRow});
 
     // Keep enqueuing updates until we reach the targetLastRow or
@@ -306,7 +330,6 @@ export default class FixedHeightWindowedListView extends React.Component {
     if (lastRow !== targetLastRow || firstRow !== targetFirstRow) {
       this.__enqueueComputeRowsToRender();
     }
-
   }
 
   /**
@@ -372,12 +395,9 @@ class CellRenderer extends React.Component {
   shouldComponentUpdate(newProps) {
     return newProps.shouldUpdate;
   }
+
   render() {
-    return (
-      <View style={DEBUG && this.props.buffered ? {opacity: 0.8} : {}}>
-        {this.props.render()}
-      </View>
-    );
+    return this.props.render()
   }
 }
 

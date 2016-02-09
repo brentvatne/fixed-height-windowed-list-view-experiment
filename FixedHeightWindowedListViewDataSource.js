@@ -38,7 +38,7 @@ class FixedHeightListViewDataSource {
 
     invariant(
       numToRenderAhead < maxNumToRender,
-      "numToRenderAhead must be less than maxNumToRender",
+      `numToRenderAhead must be less than maxNumToRender`,
     );
 
     let numRendered = lastRendered - firstRendered + 1;
@@ -112,7 +112,7 @@ class FixedHeightListViewDataSource {
       lastRendered,
       pageSize,
       maxNumToRender,
-      scrollDirection
+      scrollDirection,
     } = options;
 
     let lastRow, targetLastRow;
@@ -140,7 +140,6 @@ class FixedHeightListViewDataSource {
     return { lastRow, targetLastRow };
   }
 
-
   /**
    * Public: Used to set the height of the top spacer
    *
@@ -151,7 +150,7 @@ class FixedHeightListViewDataSource {
   getHeightBeforeRow(i) {
     let height = 0;
 
-    _.forEach(this._lookup, (section, sectionId) => {
+    forEach(this._lookup, (section, sectionId) => {
       if (i > section.range[0] && i <= section.range[1]) {
         height += section.sectionHeaderHeight;
         height += ((i - 1) - section.range[0]) * section.cellHeight;
@@ -161,6 +160,10 @@ class FixedHeightListViewDataSource {
     });
 
     return height;
+  }
+
+  hasSection(sectionId) {
+    return !!this._lookup[sectionId];
   }
 
   getFirstRowOfSection(sectionId) {
@@ -243,10 +246,10 @@ class FixedHeightListViewDataSource {
     if (scrollY < 0) {
       return 0;
     } else if (scrollY > this.getTotalHeight()) {
-      return scrollY = this.getTotalHeight();
+      return Math.max(this.getRowCount() - 1, 0);
     }
 
-    let parentSection = _.find(this._lookup, (value) => {
+    let parentSection = find(this._lookup, (value) => {
       return scrollY >= value.startY && scrollY <= value.endY;
     });
 
@@ -266,7 +269,7 @@ class FixedHeightListViewDataSource {
   getRowHeight(i) {
     let row = this._dataSource[i];
 
-    if (_.isObject(row) && row.sectionId) {
+    if (isObject(row) && row.sectionId) {
       return this.getSectionHeaderHeight(row.sectionId);
     } else {
       return this.getCellHeight(i);
@@ -278,13 +281,21 @@ class FixedHeightListViewDataSource {
   }
 
   getCellHeight(i) {
-    let parentSection = _.find(this._lookup, (section) => {
-      return i >= section.range[0] || i <= section.range[1];
-    });
+    let parentSection = this.getParentSection(i);
 
     if (parentSection) {
       return parentSection.cellHeight;
     }
+  }
+
+  getSectionId(i) {
+    return this.getParentSection(i).sectionId;
+  }
+
+  getParentSection(i) {
+    return find(this._lookup, (section) => {
+      return i >= section.range[0] && i <= section.range[1];
+    });
   }
 
   getTotalHeight() {
@@ -298,18 +309,22 @@ class FixedHeightListViewDataSource {
     }
   }
 
-  cloneWithCellsAndSections(dataBlob) {
+  cloneWithCellsAndSections(dataBlob, sectionIds = Object.keys(dataBlob)) {
     /* Take in { 'A': [{..}, {..}], 'B': [{..}]} and turn it into
      *         [ { sectionId: 'A' }, {..}, {..}, { sectionId: 'B' }, {..} ]
      *
      * This is important because we want to treat section headers just as
      * other rows.
      */
-    this._dataSource = _.reduce(dataBlob, (result, value, key) => {
-      result.push({sectionId: key});
-      result.push.apply(result, value);
-      return result;
-    }, []);
+    this._dataSource = [];
+    let sectionIdsPresent = [];
+
+    sectionIds.forEach((sectionId) => {
+      if (dataBlob[sectionId]) {
+        this._dataSource.push({ sectionId }, ...dataBlob[sectionId]);
+        sectionIdsPresent.push(sectionId);
+      }
+    });
 
     /* Build a data structure like this so we can easily perform calculations we
      * need later:
@@ -317,7 +332,7 @@ class FixedHeightListViewDataSource {
      */
     let lastRow = -1;
     let cumulativeHeight = 0;
-    this._lookup = _.reduce(Object.keys(dataBlob), (result, sectionId) => {
+    this._lookup = sectionIdsPresent.reduce((result, sectionId) => {
       let sectionHeaderHeight = this._getHeightForSectionHeader(sectionId);
       let cellHeight = this._getHeightForCell(sectionId);
       let count = dataBlob[sectionId].length;
@@ -331,7 +346,8 @@ class FixedHeightListViewDataSource {
         endY: cumulativeHeight + sectionHeight,
         cellHeight,
         sectionHeaderHeight,
-      }
+        sectionId,
+      };
 
       cumulativeHeight += sectionHeight;
       lastRow = lastRow + 1 + count;
@@ -350,10 +366,11 @@ class FixedHeightListViewDataSource {
    * Returns an array containing the number of rows in each section
    */
   getSectionLengths() {
-    return _.reduce(this._lookup, (result, value) => {
+    let result = [];
+    forEach(this._lookup, value => {
       result.push(value.count);
-      return result;
-    }, []);
+    });
+    return result;
   }
 }
 
