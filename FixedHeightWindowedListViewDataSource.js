@@ -270,7 +270,7 @@ class FixedHeightListViewDataSource {
   getRowHeight(i) {
     let row = this._dataSource[i];
 
-    if (isObject(row) && row.sectionId) {
+    if (_.isObject(row) && row.sectionId) {
       return this.getSectionHeaderHeight(row.sectionId);
     } else {
       return this.getCellHeight(i);
