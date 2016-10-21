@@ -3,8 +3,8 @@
  */
 'use strict';
 
-const _ = require('lodash');
-const invariant = require('fbjs/lib/invariant');
+import _ from 'lodash';
+import invariant from 'fbjs/lib/invariant';
 
 /**
  * Helper class to perform calcuations required by FixedHeightWindowedListView.
@@ -150,7 +150,8 @@ class FixedHeightListViewDataSource {
   getHeightBeforeRow(i) {
     let height = 0;
 
-    forEach(this._lookup, (section, sectionId) => {
+    console.log(this._lookup);
+    _.forEach(this._lookup, (section, sectionId) => {
       if (i > section.range[0] && i <= section.range[1]) {
         height += section.sectionHeaderHeight;
         height += ((i - 1) - section.range[0]) * section.cellHeight;
@@ -249,7 +250,7 @@ class FixedHeightListViewDataSource {
       return Math.max(this.getRowCount() - 1, 0);
     }
 
-    let parentSection = find(this._lookup, (value) => {
+    let parentSection = _.find(this._lookup, (value) => {
       return scrollY >= value.startY && scrollY <= value.endY;
     });
 
@@ -269,7 +270,7 @@ class FixedHeightListViewDataSource {
   getRowHeight(i) {
     let row = this._dataSource[i];
 
-    if (isObject(row) && row.sectionId) {
+    if (_.isObject(row) && row.sectionId) {
       return this.getSectionHeaderHeight(row.sectionId);
     } else {
       return this.getCellHeight(i);
@@ -293,7 +294,7 @@ class FixedHeightListViewDataSource {
   }
 
   getParentSection(i) {
-    return find(this._lookup, (section) => {
+    return _.find(this._lookup, (section) => {
       return i >= section.range[0] && i <= section.range[1];
     });
   }
@@ -367,7 +368,7 @@ class FixedHeightListViewDataSource {
    */
   getSectionLengths() {
     let result = [];
-    forEach(this._lookup, value => {
+    _.forEach(this._lookup, value => {
       result.push(value.count);
     });
     return result;

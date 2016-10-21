@@ -3,7 +3,8 @@
  */
 'use strict';
 
-import React, {
+import React, { Component } from 'react'
+import {
   Platform,
   ScrollView,
   Text,
@@ -29,7 +30,7 @@ import _ from 'lodash';
  * Rows must have a pre-determined height, thus FixedHeight. The height
  * of the rows can vary depending on the section that they are in.
  */
-export default class FixedHeightWindowedListView extends React.Component {
+export default class FixedHeightWindowedListView extends Component {
 
   constructor(props, context) {
     super(props, context);
@@ -217,7 +218,7 @@ export default class FixedHeightWindowedListView extends React.Component {
 
       let key = id;
 
-      if (!(isObject(data) && data.sectionId)) {
+      if (!(_.isObject(data) && data.sectionId)) {
         parentSectionId = this.props.dataSource.getSectionId(idx)
         key = `${key}-${id}`;
       }
@@ -235,7 +236,7 @@ export default class FixedHeightWindowedListView extends React.Component {
   }
 
   __renderRow(data, parentSectionId, idx, key) {
-    if (isObject(data) && data.sectionId) {
+    if (_.isObject(data) && data.sectionId) {
       return this.props.renderSectionHeader(data, null, idx, key);
     } else {
       return this.props.renderCell(data, parentSectionId, idx, key);

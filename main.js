@@ -6,9 +6,9 @@
  */
 'use strict';
 
-import React, {
+import React, { Component } from 'react';
+import {
   AppRegistry,
-  Component,
   Image,
   TouchableHighlight,
   ScrollView,
@@ -46,7 +46,7 @@ function showLastFrameTime() {
 
 showLastFrameTime();
 
-class Main extends React.Component {
+class Main extends Component {
   constructor(props, context) {
     super(props, context);
 
@@ -113,7 +113,7 @@ class Main extends React.Component {
   }
 }
 
-class LetterPicker extends React.Component {
+class LetterPicker extends Component {
 
   render() {
     return (
@@ -125,7 +125,7 @@ class LetterPicker extends React.Component {
 }
 
 const Alphabet = "ABCDEFGHIJKLMNOPQRSTUVWXYZ".split('');
-class AlphabetPicker extends React.Component {
+class AlphabetPicker extends Component {
 
   componentWillMount() {
     this._panResponder = PanResponder.create({
@@ -189,7 +189,7 @@ class AlphabetPicker extends React.Component {
 
 }
 
-class ContactCell extends React.Component {
+class ContactCell extends Component {
   constructor(props) {
     super(props);
   }
@@ -207,7 +207,7 @@ class ContactCell extends React.Component {
 }
 
 
-let styles = StyleSheet.create({
+const styles = StyleSheet.create({
   container: {
     flex: 1,
     paddingTop: 25,
